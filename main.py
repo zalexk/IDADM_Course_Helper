@@ -89,6 +89,11 @@ def major_2_info(major_2 : str) -> None:
                     height = "content")
         
 if __name__ == "__main__":
+    st.set_page_config(
+        page_title = "IDADM Course Information (HK)",
+        layout="wide"
+    )
+    
     st.title("IDADM Course Information (HK)")
     
     if major_2 := select_major(data.major_list[1:]):
