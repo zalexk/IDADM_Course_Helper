@@ -102,6 +102,7 @@ if __name__ == "__main__":
     st.title("IDADM Course Information (HK)")
     st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="ℹ️")
     st.caption("*Data updated as of 10 Jan 2026")
+    st.caption("**This is unofficial. Please be aware that there may be mistakes.")
     
     if major_2 := select_major(data.major_list[1:]):
         # Hide the 1st major (Interdisciplinary Data Analytics) if 2nd major is not selected
