@@ -18,33 +18,61 @@ major_list = (
         "Statistics (CUHK(SZ))"
         )
 
-def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | dict[str, str]:
-    equivalence_courses: dict[str, dict[str, str]] = {major: {} for major in major_list}
+with open("data/course_list.csv", newline='', encoding = 'utf-8') as csvfile:
+    # Read raw_data/course_list.csv + Save to course_info
+    course_info : dict[str, list[str]] = {}
+    # course_info : {code : [title, units]}
     
-    with open('data/equivalence_courses_id.csv', newline='', encoding = 'utf-8') as csvfile:
-        reader = csv.DictReader(csvfile, 
-                                delimiter=',',
-                                fieldnames = ['major', 'hk_id', 'sz_id'])
+    reader = csv.DictReader(csvfile, 
+                            delimiter=',',
+                            fieldnames = ['code', 'title', 'units'])
+    course_info = {row['code']: [row['title'], row['units']] for row in reader} 
+    
+
+
+with open("data/equivalence_courses.csv", newline='', encoding = 'utf-8') as csvfile:  
+    reader = csv.DictReader(csvfile, 
+                            delimiter=',',
+                            fieldnames = ['major', 'code(hk)', 'name(hk)', 'code(sz)', 'name(sz)'])
+    
+    equivalence_courses: dict[str, dict[str, str]] = {major: {} for major in major_list}
+    """
+    equivalence_courses: {
+        major : {
+            code(hk) : code(sz)
+        }
+    }
+    """
+    
+    for row in reader:
+        # Get the equivalence course ID
+        equivalence_courses[row['major']][row['code(hk)']] = row['code(sz)']
         
-        for row in reader:
-            equivalence_courses[row['major']][row['hk_id']] = row['sz_id']
+        
+        # Add equivalence course info to course_info
+        if row['code(hk)'] not in course_info.keys():
+            unit = course_info[row['code(sz)']][1]
             
+            course_info[row['code(hk)']] = [row['name(hk)'], unit]
+        
+        elif row['code(sz)'] not in course_info.keys():
+            unit = course_info[row['code(hk)']][1]
+            
+            course_info[row['code(sz)']] = [row['name(sz)'], unit]
+            
+            
+
+def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | dict[str, str]:
     if major == 'all':
         return equivalence_courses
+    
     elif major not in major_list:
+        print(f'"{major} Not Found" : "Please check again"')
         return {"Major Not Found" : "Please check again"}
     else:
         return equivalence_courses[major]
 
 def get_course_info(course_id : str = "all") -> dict[str, list[str]] | list[str] :
-    course_info : dict[str, list[str]] = {}
-    
-    with open('data/course_info.csv', newline='', encoding = 'utf-8') as csvfile:
-        reader = csv.DictReader(csvfile, 
-                                    delimiter=',',
-                                    fieldnames = ['course_id', 'name', 'units'])
-        course_info = {row['course_id']: [row['name'], row['units']] for row in reader} 
-        
     if course_id == "all":
         return course_info
     
@@ -52,6 +80,7 @@ def get_course_info(course_id : str = "all") -> dict[str, list[str]] | list[str]
         return list(course_info.keys())
     
     elif course_id not in course_info.keys():
+        print(f"Course ID {course_id} Not Found")
         return ["Course ID Not Found"]
     
     else:
@@ -92,9 +121,6 @@ def show_course_info(major : str, course_list : str | list[str], campus : Litera
         course_list = [course_list]
 
     for id in course_list:    
-        # if id not in get_course_info("id"): # Ensure the course_id is invalid
-        #     output_list.append(id + "Not Found")
-        # else:
         if determine_campus(id) != campus :
             id = convert_course_id(major, id)
             if id == "Not Found":

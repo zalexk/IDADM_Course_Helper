@@ -37,6 +37,10 @@ def IDA_info(major_2 : str) -> None:
     
     st.subheader("Elective Courses")
     
+    st.info("""You have to take **6-15 units from Group A** + **12-21 units from Group B**
+            
+You have to take at least **12 units of courses from level 3000+** (including at least **6 units of courses from level 4000+**)
+""")
     for i in ("A", "B"):
         st.markdown(f"**Group {i}**")
         elective_table = pd.DataFrame(
@@ -61,6 +65,7 @@ def IDA_info(major_2 : str) -> None:
                     height = "content")
 
 def major_2_info(major_2 : str) -> None:
+    st.info("Only the grade of the Research Component counts in the Major GPA for the Second Major")
     for i in ("Required Courses", "Research Component", "Elective Courses"):
         st.subheader(i)
         
@@ -95,9 +100,11 @@ if __name__ == "__main__":
     )
     
     st.title("IDADM Course Information (HK)")
+    st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="ℹ️")
+    st.caption("*Data updated as of 10 Jan 2026")
     
     if major_2 := select_major(data.major_list[1:]):
-        # Hide the 1st major (Interdisciplinary Data Analytics)
+        # Hide the 1st major (Interdisciplinary Data Analytics) if 2nd major is not selected
         major_1_tab, major_2_tab = st.tabs(["Interdisciplinary Data Analytics", major_2])
 
         with major_1_tab:

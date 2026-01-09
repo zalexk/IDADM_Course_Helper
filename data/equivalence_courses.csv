@@ -1,17 +1,16 @@
 Interdisciplinary Data Analytics,DOTE1030,Economics for Business Studies I,ECO2011,Basic Microeconomics
-Interdisciplinary Data Analytics,ENGG1110,Problem Solving by Programming,CSC1001/CSC1003,Introduction to Computer Science: Programming Methodology/ Introduction to Computer Science and Java Programming
+Interdisciplinary Data Analytics,ENGG1110,Problem Solving by Programming,CSC1001/1003,Introduction to Computer Science: Programming Methodology/ Introduction to Computer Science and Java Programming
 Interdisciplinary Data Analytics,MATH1010,University Mathematics,MAT1001,Calculus I
 Interdisciplinary Data Analytics,DOTE1040,Economics for Business Studies II,ECO2021,Basic Macroeconomics
 Interdisciplinary Data Analytics,ENGG2440,Discrete Mathematics for Engineers,CSC3001,Discrete Mathematics
 Interdisciplinary Data Analytics,MATH1030,Linear Algebra I,MAT2040,Linear Algebra
 Interdisciplinary Data Analytics,MGNT1020,Management,MGT2020,Principles of Management
-Interdisciplinary Data Analytics,STAT2001,Basic Concepts in Statistics and Probability I,STA2001/STA2001H,Probability and Statistics I/ Honours Probability and Statistics I
+Interdisciplinary Data Analytics,STAT2001,Basic Concepts in Statistics and Probability I,STA2001/ STA2001H,Probability and Statistics I/ Honours Probability and Statistics I
 Interdisciplinary Data Analytics,SEEM2460,Introduction to Data Science,DDA2001,Introduction to Data Science
 Interdisciplinary Data Analytics,CSCI1120,Introduction to Computing Using C++,CSC3002,C/C++ Programming
 Interdisciplinary Data Analytics,CSCI2100,Data Structures,CSC3100,Data Structures
 Interdisciplinary Data Analytics,CSCI3160,Design and Analysis of Algorithms,CSC4120,Design and Analysis of Algorithms
 Interdisciplinary Data Analytics,CSCI3230,Fundamentals of Artificial Intelligence,ECE4010,Machine Intelligence and Applications
-Interdisciplinary Data Analytics,CSCI3320,Fundamentals of Machine Learning,DDA3020,Machine Learning
 Interdisciplinary Data Analytics,CSCI4250,Online Algorithms for Machine Learning and Optimization,DDA4230,Reinforcement Learning
 Interdisciplinary Data Analytics,DOTE4280,Network and Security,ECE4007,Computer and Network Security
 Interdisciplinary Data Analytics,ELEG2201,Digital Circuits and Computing Systems,ECE2050,Digital Logic and Systems
@@ -20,7 +19,7 @@ Interdisciplinary Data Analytics,FINA4110,Options and Futures,FIN4110,Options an
 Interdisciplinary Data Analytics,FINA4120,Fixed Income Securities Analysis,FIN4120,Fixed Income Securities Analysis
 Interdisciplinary Data Analytics,IERG2051,Signals and Systems,ECE3001,Signals and Systems
 Interdisciplinary Data Analytics,IERG2310,Principles of Communication Systems,ECE3050,Principles of Communication Systems
-Interdisciplinary Data Analytics,IERG3080,Information and Software Engineering Practice,CSC4001,Software Engineering
+Interdisciplinary Data Analytics,IERG3080/ SEEM3430,Information and Software Engineering Practice/ Information Systems Analysis and Design,CSC4001,Software Engineering
 Interdisciplinary Data Analytics,IERG3280,"Networks: Technology, Economics, and Social Interactions",ECE3280,"Networks: Technology, Economics and Society"
 Interdisciplinary Data Analytics,IERG3310,Computer Networks,ECE4016,Computer Networks
 Interdisciplinary Data Analytics,IERG3320,Social Media and Human Information Interaction,ECE4300,Systems Design in Human- Computer Interaction
@@ -33,7 +32,7 @@ Interdisciplinary Data Analytics,MATH3240,Numerical Methods for Differential Equ
 Interdisciplinary Data Analytics,MATH3270,Ordinary Differential Equations,MAT2001,Honours Ordinary Differential Equations
 Interdisciplinary Data Analytics,MATH3280,Introductory Probability,MAT3280,Probability Theory
 Interdisciplinary Data Analytics,MATH3290,Mathematical Modeling,MAT3300,Mathematical Modeling
-Interdisciplinary Data Analytics,MATH3320,Foundation of Data Analytics,DDA3020,Machine Learning
+Interdisciplinary Data Analytics,CSCI3320/ MATH3320/ STAT4001,Fundamentals of Machine Learning/ Foundation of Data Analytics/ Data Mining and Statistical Learning,DDA3020,Machine Learning
 Interdisciplinary Data Analytics,MATH4240,Stochastic Processes,STA4001,Stochastic Processes
 Interdisciplinary Data Analytics,MGNT3010,Organizational Behavior,MGT3010,Organizational Behavior
 Interdisciplinary Data Analytics,MKTG3010,Marketing Research,MKT4120,Marketing Research
@@ -43,17 +42,14 @@ Interdisciplinary Data Analytics,MKTG3060,Big Data Strategy in Marketing,MKT4220
 Interdisciplinary Data Analytics,MKTG4030,Service Marketing,MKT4030,Service Marketing
 Interdisciplinary Data Analytics,MKTG4040,Strategic Marketing,MKT4040,Strategic Marketing
 Interdisciplinary Data Analytics,RMSC4003,Statistical Modelling in Financial Markets,STA4020,Statistical Modelling in Financial Markets
-Interdisciplinary Data Analytics,SEEM3430,Information Systems Analysis and Design,CSC4001,Software Engineering
 Interdisciplinary Data Analytics,SEEM3580,Risk Analysis for Financial Engineering,RMS4060,Risk Management with Derivatives
 Interdisciplinary Data Analytics,SEEM4630,E-Commerce Data Mining,CSC4008,Techniques for Data Mining
-Interdisciplinary Data Analytics,SEEM4730,Statistics Modeling and Analysis in Financial Engineering,FMA4200,Financial Data Analysis
-Interdisciplinary Data Analytics,SEEM4730,Statistics Modeling and Analysis in Financial Engineering,STA4020,Statistical Modelling in Financial Markets
+Interdisciplinary Data Analytics,SEEM4730,Statistics Modeling and Analysis in Financial Engineering,FMA4200/ STA4020,Financial Data Analysis/ Statistical Modelling in Financial Markets
 Interdisciplinary Data Analytics,SEEM4750,Advances in Logistics and Supply Chain Management,MGT4270,Current and Regional Issues in Supply Chain and Logistics Management
 Interdisciplinary Data Analytics,STAT2005,Programming Languages for Statistics,STA3005,Statistical Computing
-Interdisciplinary Data Analytics,STAT2006,Basic Concepts in Statistics and Probability II,STA2002/STA2002H,Probability and Statistics II/ Honours Probability and Statistics II
+Interdisciplinary Data Analytics,STAT2006,Basic Concepts in Statistics and Probability II,STA2002/ 2002H,Probability and Statistics II/ Honours Probability and Statistics II
 Interdisciplinary Data Analytics,STAT3005,Nonparametric Statistics,STA3007,Nonparametric Statistics
 Interdisciplinary Data Analytics,STAT3008,Applied Regression Analysis,STA3001,Linear Models
-Interdisciplinary Data Analytics,STAT4001,Data Mining and Statistical Learning,DDA3020,Machine Learning
 Interdisciplinary Data Analytics,STAT4003,Statistical Inference,STA3020,Statistical Inference
 Interdisciplinary Data Analytics,STAT4005,Time Series,STA4003,Time Series
 Integrated BBA,ACCT2111,Introductory Financial Accounting,ACT2111,Introductory Financial Accounting
@@ -76,8 +72,7 @@ Information Engineering,IERG2310,Principles of Communication Systems,ECE3050,Pri
 Information Engineering,IERG3010,Digital Communications,ECE4002,Digital Communications
 Information Engineering,IERG3060,Microcontrollers and Embedded Systems,ECE3080,Microprocessors and Computer Systems
 Information Engineering,IERG3080,Information and Software Engineering Practice,CSC4001,Software Engineering
-Information Engineering,IERG3280,"Networks: Technology, Economics, and Social",ECE3280,"Networks: Technology, Economics and Society"
-Information Engineering,,Interactions,,
+Information Engineering,IERG3280,"Networks: Technology, Economics, and Social Interactions",ECE3280,"Networks: Technology, Economics and Society"
 Information Engineering,IERG3310,Computer Networks,ECE4016,Computer Networks
 Information Engineering,IERG3320,Social Media and Human Information Interaction,ECE4300,Systems Design in Human- Computer Interaction
 Information Engineering,IERG3810,Microcontrollers and Embedded Systems Laboratory,ECE3810,Embedded Systems Laboratory
@@ -139,8 +134,7 @@ Financial Engineering,FTEC4003,Data Mining for FinTech,FTE4003,Data Mining for F
 Financial Engineering,MATH3215,Operations Research,MAT3007,Optimization
 Financial Engineering,MATH3280,Introductory Probability,MAT3280,Probability Theory
 Financial Engineering,MKTG3060,Big Data Strategy in Marketing,MKT4220,Big Data Marketing
-Financial Engineering,SEEM3580,Risk Analysis for Financial Engineering,RMS4060,Risk Management with Derivatives
-Financial Engineering,RMSC4007,Risk Management with Derivatives Concepts,RMS4060,Risk Management with Derivatives
+Financial Engineering,SEEM3580/ RMSC4007,Risk Analysis for Financial Engineering/ Risk Management with Derivatives Concepts,RMS4060,Risk Management with Derivatives
 Financial Engineering,STAT2006,Basic Concepts in Statistics and Probability II,STA2002/2 002H,Probability and Statistics II/ Honours Probability and Statistics II
 Financial Engineering,MATH4240,Stochastic Processes,STA4001,Stochastic Processes
 Financial Engineering,STAT4005,Time Series,STA4003,Time Series
@@ -179,7 +173,7 @@ Computer Science and Engineering,MATH2010,Advanced Calculus I,MAT1002,Calculus I
 Electrical and Computer Engineering,CSCI1120,Introduction to Computing Using C++,CSC3002,C/C++ Programming
 Electrical and Computer Engineering,CSCI2100,Data Structure,CSC3100,Data Structures
 Electrical and Computer Engineering,CSCI3150,Introduction to Operating Systems,CSC3150,Operating Systems
-Electrical and Computer Engineering,CSCI3230,Fundamentals of Artificial Intelligence,CSC3180,Fundamentals of Artificial Intelligence
+Electrical and Computer Engineering,CSCI3230,Fundamentals of Artificial Intelligence,CSC3180/ ECE4010,Fundamentals of Artificial Intelligence/ Machine Intelligence and Applications
 Electrical and Computer Engineering,IERG3080,Information and Software Engineering Practice,CSC4001,Software Engineering
 Electrical and Computer Engineering,CSCI4160,Distributed and Parallel Computing,CSC4005,Parallel Programming
 Electrical and Computer Engineering,CSCI3320,Fundamentals of Machine Learning,DDA3020,Machine Learning
@@ -194,7 +188,7 @@ Electrical and Computer Engineering,ELEG3503,Introduction to Digital Signal Proc
 Electrical and Computer Engineering,IERG3810,Microcontrollers and Embedded Systems Laboratory,ECE3810,Embedded Systems Laboratory
 Electrical and Computer Engineering,IERG3010,Digital Communications,ECE4002,Digital Communications
 Electrical and Computer Engineering,IERG4100,Wireless Communication Systems,ECE4003,Wireless Communication Systems
-Electrical and Computer Engineering,CSCI3230,Fundamentals of Artificial Intelligence,ECE4010,Machine Intelligence and Applications
+Electrical and Computer Engineering,IERG4030,Optical Communications,ECE4004,Introduction to Optical Communications
 Electrical and Computer Engineering,IERG3310,Computer Networks,ECE4016,Computer Networks
 Electrical and Computer Engineering,IERG4180,Network Software Design and Programming,ECE4180,Network Software Design and Programming
 Electrical and Computer Engineering,IERG4190,Multimedia Coding and Processing,ECE4190,Multimedia Coding and Networking
@@ -204,6 +198,7 @@ Electrical and Computer Engineering,MATH2010,Advanced Calculus I,MAT1002,Calculu
 Electrical and Computer Engineering,MATH3215,Operations Research,MAT3007,Optimization
 Electrical and Computer Engineering,IERG4150,Introduction to Cryptography,MAT4007,Introduction to Cryptography
 Electrical and Computer Engineering,MATH4220,Partial Differential Equations,MAT4220,Partial Differential Equation
+Electrical and Computer Engineering,MATH4240,Stochastic Processes,STA4001,Stochastic Processes
 Mathematics and Applied Mathematics,SEEM4720,Computational Finance,FMA4800,Financial Computation
 Mathematics and Applied Mathematics,MATH2010,Advanced Calculus I,MAT1002,Calculus II
 Mathematics and Applied Mathematics,MATH3270,Ordinary Differential Equations,MAT2001,Honours Ordinary Differential Equation
@@ -238,8 +233,7 @@ Statistics (CUHK(SZ)),MATH2040,Linear Algebra II,MAT3040,Advanced Linear Algebra
 Statistics (CUHK(SZ)),MATH3280,Introductory Probability,MAT3280,Probability Theory
 Statistics (CUHK(SZ)),RMSC4001,Simulation Methods for Risk Management Science and Finance,RMS4001,Simulation Methods for Risk Management and Finance
 Statistics (CUHK(SZ)),RMSC4005,Stochastic Calculus for Finance and Risk,RMS4050,Stochastic Calculus for Finance and Risk
-Statistics (CUHK(SZ)),SEEM3580,Risk Analysis for Financial Engineering,RMS4060,Risk Management with Derivatives
-Statistics (CUHK(SZ)),RMSC4007,Risk Management with Derivatives Concepts,RMS4060,Risk Management with Derivatives
+Statistics (CUHK(SZ)),SEEM3580/ RMSC4007,Risk Analysis for Financial Engineering/ Risk Management with Derivatives Concepts,RMS4060,Risk Management with Derivatives
 Statistics (CUHK(SZ)),STAT3005,Nonparametric Statistics,STA3007,Nonparametric Statistics
 Statistics (CUHK(SZ)),MATH4240,Stochastic Processes,STA4001,Stochastic Processes
 Statistics (CUHK(SZ)),STAT4002,Applied Multivariate Analysis,STA4002,Multivariate Statistical Analysis
