@@ -19,7 +19,7 @@ major_list = (
         )
 
 with open("data/course_list.csv", newline='', encoding = 'utf-8') as csvfile:
-    # Read raw_data/course_list.csv + Save to course_info
+    # Read course_list.csv + Save to course_info
     course_info : dict[str, list[str]] = {}
     # course_info : {code : [title, units]}
     
@@ -57,10 +57,11 @@ with open("data/equivalence_courses.csv", newline='', encoding = 'utf-8') as csv
         
         elif row['code(sz)'] not in course_info.keys():
             unit = course_info[row['code(hk)']][1]
-            
+
             course_info[row['code(sz)']] = [row['name(sz)'], unit]
             
-            
+with open("data/course_list.json") as jsonfile:
+    course_list = json.load(jsonfile)          
 
 def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | dict[str, str]:
     if major == 'all':
@@ -69,6 +70,7 @@ def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | 
     elif major not in major_list:
         print(f'"{major} Not Found" : "Please check again"')
         return {"Major Not Found" : "Please check again"}
+    
     else:
         return equivalence_courses[major]
 
@@ -87,9 +89,6 @@ def get_course_info(course_id : str = "all") -> dict[str, list[str]] | list[str]
         return course_info[course_id]
 
 def get_course_list(major : str = "all") -> dict[str, str | list[str]]:
-    with open("data/course_list.json") as jsonfile:
-        course_list = json.load(jsonfile)
-    
     if major == "all":
         return course_list
     elif major not in major_list:
