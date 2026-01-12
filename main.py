@@ -20,10 +20,16 @@ study_period_col_config = {
                             options = [
                                 "Year 1 Sem 1",
                                 "Year 1 Sem 2",
+                                "Year 1 Summer (CUHK)",
+                                "Year 1 Summer (CUHKSZ)",
                                 "Year 2 Sem 1",
                                 "Year 2 Sem 2",
+                                "Year 2 Summer (CUHK)",
+                                "Year 2 Summer (CUHKSZ)",
                                 "Year 3 Sem 1",
                                 "Year 3 Sem 2",
+                                "Year 3 Summer (CUHK)",
+                                "Year 3 Summer (CUHKSZ)",
                                 "Year 4 Sem 1",
                                 "Year 4 Sem 2"
                             ]
@@ -97,19 +103,21 @@ def IDA_info(major_2 : str) -> None:
                     "hk", # Campus can be ignored
                     "credits"
                 ),
-                "Study Period" : [" " for _ in range(len(course_list))]
+                "Study Period" : [" " for _ in range(len(course_list))],
                 # Generate empty data with same row with other columns
+                "Type" : [f"IDA - {i}" for _ in range(len(course_list))]
             }
         )
         
-        st.session_state.study_planner[0][f"IDA - {i}"] = st.data_editor(course_table,
-                    column_order = None,
-                    hide_index = True,
-                    height = "content",
-                    column_config = study_period_col_config,
-                    disabled = ["CUHK", "CUHKSZ", "Credits"],
-                    key = f"IDA_{i}_data"
-            )
+        st.session_state.study_planner[0][f"IDA - {i}"] = st.data_editor(
+            course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+            column_order = None,
+            hide_index = True,
+            height = "content",
+            column_config = study_period_col_config,
+            disabled = ["CUHK", "CUHKSZ", "Credits"],
+            key = f"IDA_{i}_data"
+        )
         
     
     st.subheader("Elective Courses")
@@ -124,7 +132,7 @@ At least 12 units level 3000+ (incl 6 units level 4000+)
         
         course_list = data.get_course_list(major_2)["1st Major Elective Courses"][i]
         
-        elective_table = pd.DataFrame(
+        course_table = pd.DataFrame(
             {
                 "CUHK": data.show_course_info(
                         "Interdisciplinary Data Analytics",
@@ -143,18 +151,20 @@ At least 12 units level 3000+ (incl 6 units level 4000+)
                     "sz",
                     "credits"
                 ),
-                "Study Period" : [" " for _ in range(len(course_list))]
+                "Study Period" : [" " for _ in range(len(course_list))],
+                "Type" : [f"IDA - Elective - {i}" for _ in range(len(course_list))]
             }
         )
         
-        st.session_state.study_planner[0][f"IDA - {i}"] = st.data_editor(elective_table,
-                    column_order = None,
-                    hide_index = True,
-                    height = "content",
-                    column_config = study_period_col_config,
-                    disabled = ["CUHK", "CUHKSZ", "Credits"],
-                    key = f"IDA_Elective_{i}"
-                    )
+        st.session_state.study_planner[0][f"IDA - {i}"] = st.data_editor(
+            course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+            column_order = None,
+            hide_index = True,
+            height = "content",
+            column_config = study_period_col_config,
+            disabled = ["CUHK", "CUHKSZ", "Credits"],
+            key = f"IDA_Elective_{i}"
+        )
         
 
 def major_2_info(major_2 : str) -> None:
@@ -187,39 +197,47 @@ def major_2_info(major_2 : str) -> None:
                     "sz",
                     "credits"
                     ),
-                "Study Period" : [" " for _ in range(len(course_list))]
+                "Study Period" : [" " for _ in range(len(course_list))],
+                "Type" : [f"2nd Major - {i}" for _ in range(len(course_list))]
             }
         )
         
-        st.session_state.study_planner[0][f"2nd Major - {i}"] = st.data_editor(course_table,
-                    column_order = None,
-                    hide_index = True,
-                    height = "content",
-                    column_config = study_period_col_config,
-                    disabled = ["CUHK", "CUHKSZ", "Credits"],
-                    key = f"major_2_{i}"
-                    )
-            
+        st.session_state.study_planner[0][f"2nd Major - {i}"] = st.data_editor(
+            course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+            column_order = None,
+            hide_index = True,
+            height = "content",
+            column_config = study_period_col_config,
+            disabled = ["CUHK", "CUHKSZ", "Credits"],
+            key = f"major_2_{i}"
+        )
+           
 def show_planner(year : int):
     study_campus = {
         "Year 1 Sem 1": "CUHK",
         "Year 1 Sem 2": "CUHKSZ",
+        "Year 1 Summer (CUHK)": "CUHK",
+        "Year 1 Summer (CUHKSZ)": "CUHKSZ",
         "Year 2 Sem 1": "CUHKSZ",
         "Year 2 Sem 2": "CUHK",
+        "Year 2 Summer (CUHK)": "CUHK",
+        "Year 2 Summer (CUHKSZ)": "CUHKSZ",
         "Year 3 Sem 1": "CUHK",
         "Year 3 Sem 2": "CUHKSZ",
+        "Year 3 Summer (CUHK)": "CUHK",
+        "Year 3 Summer (CUHKSZ)": "CUHKSZ",
         "Year 4 Sem 1": "CUHKSZ",
         "Year 4 Sem 2": "CUHK"
     }
+    
     study_plan = st.session_state.study_plan[0]
     
-  
     sem1, sem2 = st.columns(2)
     
     with sem1:
         st.subheader(f"Sem 1 ({study_campus[f"Year {year} Sem 1"]})")
         
-        filtered_study_plan = study_plan[study_plan["Study Period"] == f"Year {year} Sem 1"].filter([study_campus[f"Year {year} Sem 1"], "Credits"])
+        filtered_study_plan = study_plan[study_plan["Study Period"] == f"Year {year} Sem 1"].filter([study_campus[f"Year 1 Summer (CUHK)"], "Credits"])
         
         
         st.dataframe(
@@ -228,9 +246,12 @@ def show_planner(year : int):
             column_order = None,
             hide_index = True
         )
+        
+    st.metric("Total Credits", 
+              value = filtered_study_plan["Credits"].sum()
+            )
     
     with sem2:
-        
         st.subheader(f"Sem 2 ({study_campus[f"Year {year} Sem 2"]})")
         
         filtered_study_plan = study_plan[study_plan["Study Period"] == f"Year {year} Sem 2"].filter([study_campus[f"Year {year} Sem 2"], "Credits"])
@@ -242,12 +263,27 @@ def show_planner(year : int):
             column_order = None,
             hide_index = True
         )
-# def update_study_plan():
-#     st.session_state.study_plan[0] = pd.concat(
-#                 [i for i in st.session_state.study_planner[0].values()], 
-#                 ignore_index = True
-#             )
-    
+        st.metric("Total Credits", 
+              value = filtered_study_plan["Credits"].sum()
+            )
+        
+    if year < 4:
+        st.subheader("Summer Session")
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin([f"Year {year} Summer (CUHK)", f"Year {year} Summer (CUHKSZ)"])].filter(["CUHK", "CUHKSZ", "Credits"])
+        
+        st.dataframe(
+            filtered_study_plan,
+            height = "content",
+            column_order = None,
+            hide_index = True
+        )
+        st.metric("Total Credits", 
+              value = filtered_study_plan["Credits"].sum()
+            )
+
+def overall():
+    pass
+
 # ---------------- Main App ----------------    
 if __name__ == "__main__":
     st.set_page_config(
@@ -275,14 +311,9 @@ if __name__ == "__main__":
         with major_2_tab:
             major_2_info(major_2)
         
-        
         update_study_plan()
-        with planner:
-            if st.button("Refresh"):
-                update_study_plan()   
-                st.rerun()
-                   
-            y1, y2, y3, y4 = st.tabs(["Year 1", "Year 2", "Year 3", "Year 4"])
+        with planner:      
+            y1, y2, y3, y4, overall = st.tabs(["Year 1", "Year 2", "Year 3", "Year 4", "Overall"])
             with y1:
                 show_planner(1)
             with y2:
@@ -291,4 +322,6 @@ if __name__ == "__main__":
                 show_planner(3)
             with y4:
                 show_planner(4)
+            with overall:
+                pass
     

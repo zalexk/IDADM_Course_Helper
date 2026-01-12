@@ -113,7 +113,7 @@ def convert_course_id(major : str, course_id : str) -> str:
     else:
         return data.inverse[course_id]
 
-def show_course_info(major : str, course_list : str | list[str], campus : Literal['hk', 'sz'], request_type : str = "courses") -> list[str]:
+def show_course_info(major : str, course_list : str | list[str], campus : Literal['hk', 'sz'], request_type : str = "courses") -> list[str | int]:
     output_list : list[str] = []
     
     if type(course_list) == str: # Convert to list
@@ -121,7 +121,7 @@ def show_course_info(major : str, course_list : str | list[str], campus : Litera
         
     for id in course_list:  
         if request_type == "credits":
-            output_list.append(get_course_info(id)[1])
+            output_list.append(int(get_course_info(id)[1]))
         
         elif request_type == "courses":
             if determine_campus(id) != campus :
