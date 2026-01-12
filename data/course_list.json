@@ -12,6 +12,13 @@
             "MGNT1020",
             "SEEM2460",
             "STAT2001"
+        ],
+        "COOP" : [
+            "COOP1001",
+            "COOP2001",
+            "COOP3001",
+            "COOP3002",
+            "COOP4001"
         ]
     },
     "Integrated BBA" : {
@@ -91,7 +98,7 @@
             "MGNT2611",
             "MKTG2010"
         ],
-        "Research Component" : "MGNT4010",
+        "Research Component" : ["MGNT4010"],
         "2nd Major Elective Courses" : [
             "DOTE4040",
             "DOTE4240",
@@ -182,7 +189,7 @@
             "IERG2470",
             "IERG3310"
         ],
-        "Research Component" : "IERG4999",
+        "Research Component" : ["IERG4999"],
         "2nd Major Elective Courses" : [
             "CSCI3160",
             "IERG2310",
@@ -289,7 +296,7 @@
             "SEEM3550",
             "SEEM3650"
         ],
-        "Research Component" : "SEEM4999",
+        "Research Component" : ["SEEM4999"],
         "2nd Major Elective Courses" : ["CSCI1120", "CSCI1130"]
     },
     "Mathematics" : {
@@ -366,7 +373,7 @@
             "MATH2070",
             "MATH2230"
         ],
-        "Research Component" : "MATH4900",
+        "Research Component" : ["MATH4900"],
         "2nd Major Elective Courses" : [
             "MATH3030",
             "MATH3040",
@@ -459,7 +466,7 @@
             ]
         },
         "Required Courses" : ["STAT2006", "STAT3008", "STAT3011"],
-        "Research Component" : "STAT4011",
+        "Research Component" : ["STAT4011"],
         "2nd Major Elective Courses" : [
             "CSCI2520",
             "RMSC4002",
@@ -547,7 +554,7 @@
             "MAT3007",
             "STA2002"
         ],
-        "Research Component" : "DDA2081",
+        "Research Component" : ["DDA2081"],
         "2nd Major Elective Courses" : [
             "CSC3100",
             "CSC3150",
@@ -651,7 +658,7 @@
             "MKT4040",
             "MKT4120"
         ],
-        "Research Component" : "MKT4312",
+        "Research Component" : ["MKT4312"],
         "2nd Major Elective Courses" : [
             "ACT2111",
             "ACT4253",
@@ -751,7 +758,7 @@
             "ECE2050",
             "MAT1002"
         ],
-        "Research Component" : "CSC4051",
+        "Research Component" : ["CSC4051"],
         "2nd Major Elective Courses" : [
             "CSC2003",
             "CSC3120",
@@ -850,7 +857,7 @@
             "ECE3050",
             "MAT1002"
         ],
-        "Research Component" : "ERG4902",
+        "Research Component" : ["ERG4902"],
         "2nd Major Elective Courses" : [
             "CSC1002",
             "CSC3002",
@@ -952,7 +959,7 @@
             "MAT2050",
             "MAT3040"
         ],
-        "Research Component" : "MAT4400",
+        "Research Component" : ["MAT4400"],
         "2nd Major Elective Courses" : [
             "FMA4800",
             "MAT3006",
@@ -1039,7 +1046,7 @@
             ]
         },
         "Required Courses" : ["MAT1002", "MAT2050"],
-        "Research Component" : "STA4050",
+        "Research Component" : ["STA4050"],
         "2nd Major Elective Courses" : [
             "CSC3002",
             "CSC3100",

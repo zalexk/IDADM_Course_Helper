@@ -74,25 +74,25 @@ def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | 
     else:
         return equivalence_courses[major]
 
-def get_course_info(course_id : str = "all") -> dict[str, list[str]] | list[str] :
-    if course_id == "all":
+def get_course_info(request : str = "all") -> dict[str, list[str]] | list[str] :
+    if request == "all":
         return course_info
     
-    elif course_id == 'id':
+    elif request == "id":
         return list(course_info.keys())
     
-    elif course_id not in course_info.keys():
-        print(f"Course ID {course_id} Not Found")
+    elif request not in course_info.keys():
+        print(f"Course ID {request} Not Found")
         return ["Course ID Not Found"]
     
     else:
-        return course_info[course_id]
+        return course_info[request]
 
 def get_course_list(major : str = "all") -> dict[str, str | list[str]]:
     if major == "all":
         return course_list
     elif major not in major_list:
-        return {"Major Not Found" : "Please check again"}
+        return {"Not Found": f"{major} Not Found"}
     else:
         return course_list[major]
 
@@ -113,19 +113,25 @@ def convert_course_id(major : str, course_id : str) -> str:
     else:
         return data.inverse[course_id]
 
-def show_course_info(major : str, course_list : str | list[str], campus : Literal['hk', 'sz']) -> list[str]:
+def show_course_info(major : str, course_list : str | list[str], campus : Literal['hk', 'sz'], request_type : str = "courses") -> list[str]:
     output_list : list[str] = []
     
-    if type(course_list) is str: # Convert to list
+    if type(course_list) == str: # Convert to list
         course_list = [course_list]
-
-    for id in course_list:    
-        if determine_campus(id) != campus :
-            id = convert_course_id(major, id)
-            if id == "Not Found":
-                output_list.append("Unavailable")
-                continue
+        
+    for id in course_list:  
+        if request_type == "credits":
+            output_list.append(get_course_info(id)[1])
+        
+        elif request_type == "courses":
+            if determine_campus(id) != campus :
+                id = convert_course_id(major, id)
+                
+                if id == "Not Found": # No substitute course
+                    output_list.append("Unavailable")
+                    continue
             
-        output_list.append(f"{id} | {get_course_info(id)[0]}")
-            
+            output_list.append(f"{id} | {get_course_info(id)[0]}")
+        else:
+            return ["Error : Wrong value in parameter type"]
     return output_list
