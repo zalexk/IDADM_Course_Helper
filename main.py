@@ -1,5 +1,6 @@
 import streamlit as st
 from src import data_retrieval as data
+from src import req_validator as validator
 import pandas as pd
 
 # ---------------- Initialization ----------------
@@ -82,6 +83,24 @@ study_period_col_config = {
                             ]
                         )
                     }
+
+study_campus = {
+        "Year 1 Sem 1": "CUHK",
+        "Year 1 Sem 2": "CUHKSZ",
+        "Year 1 Summer (CUHK)": "CUHK",
+        "Year 1 Summer (CUHKSZ)": "CUHKSZ",
+        "Year 2 Sem 1": "CUHKSZ",
+        "Year 2 Sem 2": "CUHK",
+        "Year 2 Summer (CUHK)": "CUHK",
+        "Year 2 Summer (CUHKSZ)": "CUHKSZ",
+        "Year 3 Sem 1": "CUHK",
+        "Year 3 Sem 2": "CUHKSZ",
+        "Year 3 Summer (CUHK)": "CUHK",
+        "Year 3 Summer (CUHKSZ)": "CUHKSZ",
+        "Year 4 Sem 1": "CUHKSZ",
+        "Year 4 Sem 2": "CUHK"
+    }
+
 
 # ---------------- Functions ----------------
 def select_major(major_list : tuple) -> str | None:
@@ -266,23 +285,7 @@ def major_2_info(major_2 : str) -> None:
         )
            
 def show_planner(year : int):
-    study_campus = {
-        "Year 1 Sem 1": "CUHK",
-        "Year 1 Sem 2": "CUHKSZ",
-        "Year 1 Summer (CUHK)": "CUHK",
-        "Year 1 Summer (CUHKSZ)": "CUHKSZ",
-        "Year 2 Sem 1": "CUHKSZ",
-        "Year 2 Sem 2": "CUHK",
-        "Year 2 Summer (CUHK)": "CUHK",
-        "Year 2 Summer (CUHKSZ)": "CUHKSZ",
-        "Year 3 Sem 1": "CUHK",
-        "Year 3 Sem 2": "CUHKSZ",
-        "Year 3 Summer (CUHK)": "CUHK",
-        "Year 3 Summer (CUHKSZ)": "CUHKSZ",
-        "Year 4 Sem 1": "CUHKSZ",
-        "Year 4 Sem 2": "CUHK"
-    }
-
+    
     study_plan = st.session_state.overall_study_plan[0] # Get the overall study plan
 
     sem1_period = f"Year {year} Sem 1"
@@ -360,8 +363,13 @@ def show_overall():
     study_plan_by_category = st.session_state.study_plan[0]
     
     st.header("Check List")
-    st.write(study_plan_by_category)
-        
+    
+    
+    for category in study_plan_by_category.keys():
+        study_plan = study_plan_by_category[category]
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]  
+        # validator.check_requirement(category, )
+        # st.write(filtered_study_plan)
         
 
 # ---------------- Main App ----------------    
@@ -402,6 +410,6 @@ if __name__ == "__main__":
                 show_planner(3)
             with y4:
                 show_planner(4)
-            with overall:
-                show_overall()
+            # with overall:
+            #     show_overall()
     
