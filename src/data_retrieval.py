@@ -4,6 +4,7 @@ from bidict import bidict
 from typing import Literal
 
 major_list = (
+        "University Core",
         "Interdisciplinary Data Analytics",
         "Information Engineering",
         "Integrated BBA", 
