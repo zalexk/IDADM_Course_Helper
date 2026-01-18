@@ -1,9 +1,8 @@
 import streamlit as st
 from src import data_retrieval as data
-from src import req_validator as validator
 import pandas as pd
 
-# ---------------- Initialization ----------------
+# ---------------- Config ----------------
 if "study_plan" not in st.session_state:
     st.session_state.study_plan = [{}]
     # Store in session state
@@ -13,77 +12,42 @@ if "overall_study_plan" not in st.session_state:
     
 if "planner_update_count" not in st.session_state:
     st.session_state.planner_update_count = 0 
+    
+
+GRADUATE_REQUIREMENT = {
+            "University Core" : {
+                "Chinese Language" : 5,
+                "English Language" : 8,
+                "GE: Foundation Courses" : 6,
+                "GE: Four Areas" : 7,
+                "College GE" : 6,
+                "Understanding China" : 1,
+                "Hong Kong in the Wider Constitutional Order" : 1,
+                "Digital Literacy and Computational Thinking" : 3,
+                "Physical Education" : 2
+            },
+            "1st Major" : {
+                "Faculty Package" : 9,
+                "Required Courses" : 18,
+                "COOP" : 3,
+                "Elective" : 27,
+                "Elective Group A" : 6,
+                "Elective Group B" : 12,
+                "Elective (3000+)" : 12,
+                "Elective (4000)" : 6
+            },
+            "Total Credit" : 129
+        }
 
 if "requirement_status" not in st.session_state:
     st.session_state.requirement_status = {
-        "University Core" : {
-            "Chinese Language" : [5, 0],
-            "English Language" : [8, 0],
-            "GE: Foundation Courses" : [6, 0],
-            "GE: Four Areas" : [7, 0],
-            "College GE" : [6, 0],
-            "Understanding China" : [1, 0],
-            "Hong Kong in the Wider Constitutional Order" : [1, 0],
-            "Digital Literacy and Computational Thinking" : [3, 0],
-            "Physical Education" : [2, 0]
-        },
-        "major_1" : {
-            "major_1_elective" : [27, 0],
-            "major_1_elective_A" : [6, 0],
-            "major_1_elective_B" : [12, 0],
-            "major_1_elective_3000+" : [12, 0],
-            "major_1_elective_4000" : [6, 0]
-        },
-        "total_credit" : [129, 0]
-    }
+    "University Core": {_: False for _ in GRADUATE_REQUIREMENT["University Core"]},
     
-    # items : [requirement credit, current credit]
-
-# if "requirement" not in st.session_state:
-#     st.session_state.requirement = {
-#             "University Core" : {
-#                 "Chinese Language" : 5,
-#                 "English Language" : 8,
-#                 "GE: Foundation Courses" : 6,
-#                 "GE: Four Areas" : 7,
-#                 "College GE" : 6,
-#                 "Understanding China" : 1,
-#                 "Hong Kong in the Wider Constitutional Order" : 1,
-#                 "Digital Literacy and Computational Thinking" : 3,
-#                 "Physical Education" : 2
-#             },
-#             "major_1" : {
-#                 "major_1_elective" : 27,
-#                 "major_1_elective_A" : 6,
-#                 "major_1_elective_B" : 12,
-#                 "major_1_elective_3000+" : 12,
-#                 "major_1_elective_4000" : 6
-#             },
-#             "total_credit" : 129
-#         }
-# ---------------- Config ----------------
-study_period_col_config = {
-                        "Study Period" : st.column_config.SelectboxColumn(
-                            "Study Period",
-                            options = [
-                                "Year 1 Sem 1",
-                                "Year 1 Sem 2",
-                                "Year 1 Summer (CUHK)",
-                                "Year 1 Summer (CUHKSZ)",
-                                "Year 2 Sem 1",
-                                "Year 2 Sem 2",
-                                "Year 2 Summer (CUHK)",
-                                "Year 2 Summer (CUHKSZ)",
-                                "Year 3 Sem 1",
-                                "Year 3 Sem 2",
-                                "Year 3 Summer (CUHK)",
-                                "Year 3 Summer (CUHKSZ)",
-                                "Year 4 Sem 1",
-                                "Year 4 Sem 2"
-                            ]
-                        )
-                    }
-
+    "1st Major": {_: [False, 0] for _ in GRADUATE_REQUIREMENT["1st Major"]},
+    
+    "Total Credit": False 
+} # Default all the requirements are not fulfilled
+    
 study_campus = {
         "Year 1 Sem 1": "CUHK",
         "Year 1 Sem 2": "CUHKSZ",
@@ -101,6 +65,12 @@ study_campus = {
         "Year 4 Sem 2": "CUHK"
     }
 
+study_period_col_config = {
+                        "Study Period" : st.column_config.SelectboxColumn(
+                            "Study Period",
+                            options = list(study_campus.keys())
+                        )
+                    }
 
 # ---------------- Functions ----------------
 def select_major(major_list : tuple) -> str | None:
@@ -152,7 +122,28 @@ def ucore_info():
         key = "ucore_data" # Add unique key
     )
 
-
+    # Check the fulfillment of UCORE requirement
+    ## Remove unplanned courses
+    study_plan = st.session_state.study_plan[0]["University Core"]
+    
+    filter_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+    
+    ## Check GE: Foundation Courses
+    GE_Foundation_Courses = {"UGFH1000 | In Dialogue with Humanity", "UGFN1000 | In Dialogue with Nature"}
+    
+    st.session_state.requirement_status["University Core"]["GE: Foundation Courses"] = GE_Foundation_Courses.issubset(set(filter_study_plan["CUHK"]))
+    
+    ## Check the remaining courses
+    Core_course = {
+        "Understanding China" : "UGCP1001 | Understanding China",
+        "Hong Kong in the Wider Constitutional Order" : "UGCP1002 | Hong Kong in the Wider Constitutional Order",
+        "Digital Literacy and Computational Thinking" : "ENGG1003 | Digital Literacy and Computational Thinking"
+        }
+    
+    for item in Core_course.keys():
+        st.session_state.requirement_status["University Core"][item] = Core_course[item] in set(filter_study_plan["CUHK"])
+        
+    
 def IDA_info(major_2 : str) -> None:
     for i in ("Faculty Package", "Required Courses", "COOP"):
         st.subheader(i)
@@ -178,7 +169,7 @@ def IDA_info(major_2 : str) -> None:
                     "hk", # Campus can be ignored
                     "credits"
                 ),
-                "Study Period" : [" " for _ in range(len(course_list))],
+                "Study Period" : [" " for _ in range(len(course_list))]
                 # Generate empty data with same row with other columns
             }
         )
@@ -192,7 +183,15 @@ def IDA_info(major_2 : str) -> None:
             disabled = ["CUHK", "CUHKSZ", "Credits"],
             key = f"IDA_{i}_data"
         )
-        
+        if i != "COOP": # Exclude COOP as it is compulsory
+            # Remove unplanned courses
+            study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
+            filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+            
+            st.session_state.requirement_status["1st Major"][i] = [
+                len(study_plan) == len(filtered_study_plan),
+                filtered_study_plan["Credits"].sum()
+            ]
     
     st.subheader("Elective Courses")
     
@@ -360,16 +359,46 @@ def show_planner(year : int):
         )
     
 def show_overall():
-    study_plan_by_category = st.session_state.study_plan[0]
+    st.header("Graduation Requirements")
     
-    st.header("Check List")
+    ## ---------------- Check UCore Requirement ---------------- 
+    st.subheader("University Core")
+    # Display requirements status
+    ucore_requirement = GRADUATE_REQUIREMENT["University Core"]
+    
+    ucore_df = pd.DataFrame(
+        {
+            "Item" : ucore_requirement.keys(),
+            "Requirement" : ucore_requirement.values(),
+            "Fulfil" : st.session_state.requirement_status["University Core"].values()
+        }
+    )
+    ucore_requirement_status = st.data_editor(
+        ucore_df,
+        disabled = ["Item", "Requirement"],
+        hide_index = True
+    )    
+    
+    st.write(st.session_state.requirement_status)
     
     
-    for category in study_plan_by_category.keys():
-        study_plan = study_plan_by_category[category]
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]  
-        # validator.check_requirement(category, )
-        # st.write(filtered_study_plan)
+    ## ---------------- Check 1st major requirement ---------------- 
+    st.subheader("1st Major (IDA)")
+    major_1_requirement = GRADUATE_REQUIREMENT["1st Major"]
+    major_1_requirement_df = pd.DataFrame(
+        {
+            "Item" : major_1_requirement.keys(),
+            "Requirement" : major_1_requirement.values(),
+            "Credits" : [i[1] for i in st.session_state.requirement_status["1st Major"].values()],
+            
+            "Fulfil" : [i[0] for i in st.session_state.requirement_status["1st Major"].values()]
+        }
+    )
+    st.session_state.requirement_status["1st Major"].values()
+    st.dataframe(
+        major_1_requirement_df,
+        hide_index = True
+    )
         
 
 # ---------------- Main App ----------------    
@@ -380,7 +409,7 @@ if __name__ == "__main__":
     )
     
     st.title("IDADM Course Information (HK)")
-    st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="ℹ️")
+    st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="❗")
     
     
     if major_2 := select_major(data.major_list[2:]):
@@ -410,6 +439,6 @@ if __name__ == "__main__":
                 show_planner(3)
             with y4:
                 show_planner(4)
-            # with overall:
-            #     show_overall()
+            with overall:
+                show_overall()
     
