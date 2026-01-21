@@ -14,7 +14,7 @@ if "planner_update_count" not in st.session_state:
     st.session_state.planner_update_count = 0 
     
 
-GRADUATE_REQUIREMENT = {
+graduate_requirement = {
             "University Core" : {
                 "Chinese Language" : 5,
                 "English Language" : 8,
@@ -38,15 +38,6 @@ GRADUATE_REQUIREMENT = {
             },
             "Total Credit" : 129
         }
-
-if "requirement_status" not in st.session_state:
-    st.session_state.requirement_status = {
-    "University Core": {_: False for _ in GRADUATE_REQUIREMENT["University Core"]},
-    
-    "1st Major": {_: [False, 0] for _ in GRADUATE_REQUIREMENT["1st Major"]},
-    
-    "Total Credit": False 
-} # Default all the requirements are not fulfilled
     
 study_campus = {
         "Year 1 Sem 1": "CUHK",
@@ -82,6 +73,26 @@ def select_major(major_list : tuple) -> str | None:
     )
     
     return major
+
+def update_requirement(major_2 : str):
+    graduate_requirement["2nd Major"] = {
+        "Required Courses" : data.get_major_2_requirement(major_2, "Required Courses"),
+        "Research Component" : 3,
+        "2nd Major Elective Courses" : data.get_major_2_requirement(major_2, "Elective Courses")
+    }
+    
+    if "requirement_status" not in st.session_state:
+        st.session_state.requirement_status = {
+        "University Core": {_: False for _ in graduate_requirement["University Core"]},
+        
+        "1st Major": {_: [False, 0] for _ in graduate_requirement["1st Major"]},
+        
+        "2nd Major" : {_: [False, 0] for _ in graduate_requirement["2nd Major"]},
+        
+        "Total Credit": False 
+    } # Default all the requirements are not fulfilled
+
+
 
 def update_study_plan():
     """
@@ -134,14 +145,14 @@ def ucore_info():
     st.session_state.requirement_status["University Core"]["GE: Foundation Courses"] = GE_Foundation_Courses.issubset(set(filter_study_plan["CUHK"]))
     
     ## Check the remaining courses
-    Core_course = {
+    CORE_COURSE = {
         "Understanding China" : "UGCP1001 | Understanding China",
         "Hong Kong in the Wider Constitutional Order" : "UGCP1002 | Hong Kong in the Wider Constitutional Order",
         "Digital Literacy and Computational Thinking" : "ENGG1003 | Digital Literacy and Computational Thinking"
         }
     
-    for item in Core_course.keys():
-        st.session_state.requirement_status["University Core"][item] = Core_course[item] in set(filter_study_plan["CUHK"])
+    for item in CORE_COURSE.keys():
+        st.session_state.requirement_status["University Core"][item] = CORE_COURSE[item] in set(filter_study_plan["CUHK"])
         
     
 def IDA_info(major_2 : str) -> None:
@@ -189,8 +200,8 @@ def IDA_info(major_2 : str) -> None:
             filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
             
             st.session_state.requirement_status["1st Major"][i] = [
-                len(study_plan) == len(filtered_study_plan),
-                filtered_study_plan["Credits"].sum()
+                len(study_plan) == len(filtered_study_plan), # Determine True / False
+                filtered_study_plan["Credits"].sum() # Calculate total credits
             ]
     
     st.subheader("Elective Courses")
@@ -282,7 +293,24 @@ def major_2_info(major_2 : str) -> None:
             disabled = ["CUHK", "CUHKSZ", "Credits"],
             key = f"major_2_{i}"
         )
-           
+        
+        study_plan = st.session_state.study_plan[0][f"2nd Major - {i}"]
+        # Remove unplanned courses
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+        
+        if i != "2nd Major Elective Courses": 
+            st.session_state.requirement_status["2nd Major"][i] = [
+                len(study_plan) == len(filtered_study_plan), # Determine True / False
+                filtered_study_plan["Credits"].sum() # Calculate total credits
+            ]
+        else:
+            finished_credits = filtered_study_plan["Credits"].sum() # Calculate total credits
+            
+            st.session_state.requirement_status["2nd Major"][i] = [
+                finished_credits >= graduate_requirement["2nd Major"]["2nd Major Elective Courses"], # Determine True / False
+                finished_credits 
+            ]
+       
 def show_planner(year : int):
     
     study_plan = st.session_state.overall_study_plan[0] # Get the overall study plan
@@ -358,13 +386,13 @@ def show_planner(year : int):
         value = filtered_study_plan["Credits"].sum()
         )
     
-def show_overall():
+def show_overall(major_2 : str):
     st.header("Graduation Requirements")
     
     ## ---------------- Check UCore Requirement ---------------- 
     st.subheader("University Core")
     # Display requirements status
-    ucore_requirement = GRADUATE_REQUIREMENT["University Core"]
+    ucore_requirement = graduate_requirement["University Core"]
     
     ucore_df = pd.DataFrame(
         {
@@ -384,7 +412,7 @@ def show_overall():
     
     ## ---------------- Check 1st major requirement ---------------- 
     st.subheader("1st Major (IDA)")
-    major_1_requirement = GRADUATE_REQUIREMENT["1st Major"]
+    major_1_requirement = graduate_requirement["1st Major"]
     major_1_requirement_df = pd.DataFrame(
         {
             "Item" : major_1_requirement.keys(),
@@ -399,7 +427,25 @@ def show_overall():
         major_1_requirement_df,
         hide_index = True
     )
-        
+    
+    ## ---------------- Check 2nd major requirement ----------------    
+    st.subheader(f"2nd Major ({major_2})")
+    major_2_requirement = graduate_requirement["2nd Major"]
+    st.write(st.session_state.requirement_status["2nd Major"])
+    major_2_requirement_df = pd.DataFrame(
+        {
+            "Item" : major_2_requirement.keys(),
+            "Requirement" : major_2_requirement.values(),
+            "Credits" : [i[1] for i in st.session_state.requirement_status["2nd Major"].values()],
+            
+            "Fulfil" : [i[0] for i in st.session_state.requirement_status["2nd Major"].values()]
+        }
+    )
+    st.session_state.requirement_status["2nd Major"].values()
+    st.dataframe(
+        major_2_requirement_df,
+        hide_index = True
+    )
 
 # ---------------- Main App ----------------    
 if __name__ == "__main__":
@@ -413,6 +459,8 @@ if __name__ == "__main__":
     
     
     if major_2 := select_major(data.major_list[2:]):
+        update_requirement(major_2)
+        
         st.caption("\\* Data updated as of 10 Jan 2026")
         st.caption("** This is unofficial. Please be aware that there may be mistakes.")
         
@@ -440,5 +488,5 @@ if __name__ == "__main__":
             with y4:
                 show_planner(4)
             with overall:
-                show_overall()
+                show_overall(major_2)
     

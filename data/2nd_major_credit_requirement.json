@@ -1,0 +1,46 @@
+{
+    "Integrated BBA" : {
+        "Required Courses" : 24,
+        "Elective Courses" : 6
+    },
+    "Information Engineering" : {
+        "Required Courses" : 12,
+        "Elective Courses" : 18
+    },
+    "Systems Engineering and Engineering Management" : {
+        "Required Courses" : 27,
+        "Elective Courses" : 3
+    },
+    "Mathematics" : {
+        "Required Courses" : 15,
+        "Elective Courses" : 15
+    },
+    "Statistics (CUHK)" : {
+        "Required Courses" : 9,
+        "Elective Courses" : 21
+    },
+    "Financial Engineering" : {
+        "Required Courses" : 18,
+        "Elective Courses" : 12
+    },
+    "Marketing and Communication" : {
+        "Required Courses" : 15,
+        "Elective Courses" : 15
+    },
+    "Computer Science and Engineering" : {
+        "Required Courses" : 18,
+        "Elective Courses" : 12
+    },
+    "Electrical and Computer Engineering" : {
+        "Required Courses" : 18,
+        "Elective Courses" : 12
+    },
+    "Mathematics and Applied Mathematics" : {
+        "Required Courses" : 12,
+        "Elective Courses" : 18
+    },
+    "Statistics (CUHK(SZ))" : {
+        "Required Courses" : 6,
+        "Elective Courses" : 24
+    }
+}

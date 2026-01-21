@@ -64,6 +64,10 @@ with open("data/equivalence_courses.csv", newline='', encoding = 'utf-8') as csv
 with open("data/course_list.json") as jsonfile:
     course_list = json.load(jsonfile)          
 
+with open("data/2nd_major_credit_requirement.json") as jsonfile:
+    major_2_requirement = json.load(jsonfile)
+
+
 def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | dict[str, str]:
     if major == 'all':
         return equivalence_courses
@@ -136,3 +140,6 @@ def show_course_info(major : str, course_list : str | list[str], campus : Litera
         else:
             return ["Error : Wrong value in parameter type"]
     return output_list
+
+def get_major_2_requirement(major : str, category : str) -> int:
+    return major_2_requirement[major][category]
