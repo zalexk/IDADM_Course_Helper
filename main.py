@@ -103,6 +103,12 @@ def update_study_plan():
             [df for df in st.session_state.study_plan[0].values()],
             ignore_index=True
         )
+def determine_level(course_id : str) -> int:
+    if data.determine_campus(course_id) == "sz" :
+        index = 3
+    else:
+        index = 4
+    return int(course_id[index])
 
 def ucore_info():
     course_list = data.get_course_list("University Core")["Required Courses"]
@@ -194,6 +200,8 @@ def IDA_info(major_2 : str) -> None:
             disabled = ["CUHK", "CUHKSZ", "Credits"],
             key = f"IDA_{i}_data"
         )
+        
+        # Auto-check completion
         if i != "COOP": # Exclude COOP as it is compulsory
             # Remove unplanned courses
             study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
@@ -203,6 +211,9 @@ def IDA_info(major_2 : str) -> None:
                 len(study_plan) == len(filtered_study_plan), # Determine True / False
                 filtered_study_plan["Credits"].sum() # Calculate total credits
             ]
+        else:
+            st.session_state.requirement_status["1st Major"]["COOP"] = [True, 3]
+            # As field trips are compulsory
     
     st.subheader("Elective Courses")
     
@@ -210,7 +221,9 @@ def IDA_info(major_2 : str) -> None:
             
 At least 12 units level 3000+ (incl 6 units level 4000+)
 """)
-
+    elective_study_plan = pd.DataFrame(columns=["CUHK", "CUHKSZ", "Credits", "Study Period"]) 
+    # Create an empty DataFrame
+    
     for i in ("A", "B"):
         st.markdown(f"**Group {i}**")
         
@@ -249,6 +262,76 @@ At least 12 units level 3000+ (incl 6 units level 4000+)
             key = f"IDA_Elective_{i}"
         )
         
+        # Auto-check completion
+        study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
+        # Remove unplanned courses
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+        
+        finished_credits = filtered_study_plan["Credits"].sum() # Calculate total credits
+            
+        st.session_state.requirement_status["1st Major"][f"Elective Group {i}"] = [
+            finished_credits >= graduate_requirement["1st Major"][f"Elective Group {i}"], # Determine True / False
+            finished_credits 
+        ]
+        
+        elective_study_plan = pd.concat(
+            [elective_study_plan, filtered_study_plan],
+            ignore_index=True
+        ) # Combine Group A and Group B
+
+    # Auto-check completion
+    finished_credits = elective_study_plan["Credits"].sum() # Calculate total credits
+    
+    st.session_state.requirement_status["1st Major"]["Elective"] = [
+        finished_credits >= graduate_requirement["1st Major"]["Elective"],
+        finished_credits
+    ]
+    
+    # Calculate the credits of level 3000 & 4000 courses
+    elective_course_list_by_group = data.get_course_list(major_2)["1st Major Elective Courses"]
+
+    # Combine course list of Group A and B
+    elective_course_list = elective_course_list_by_group["A"] + elective_course_list_by_group["B"]
+    
+    elective_course_dict_by_level = {
+        3 : [],
+        4 : []
+    }
+    
+    # Group by level
+    for id in elective_course_list:
+        level = determine_level(id)
+        if 3 <= level <= 4:
+            elective_course_dict_by_level[level].append(id)
+    
+    level_4_course = data.show_course_info(
+        major_2, 
+        elective_course_dict_by_level[4],
+        campus = "hk"
+    )
+    
+    level_3_course = data.show_course_info(
+        major_2, 
+        elective_course_dict_by_level[3],
+        campus = "hk"
+    )
+    
+    level_4_df = elective_study_plan[elective_study_plan["CUHK"].isin(level_4_course)]
+    level_4_credit = level_4_df["Credits"].sum()
+    
+    st.session_state.requirement_status["1st Major"][f"Elective (4000)"] = [
+            level_4_credit >= graduate_requirement["1st Major"]["Elective (4000)"], 
+            level_4_credit 
+        ]
+    
+    
+    level_3_df = elective_study_plan[elective_study_plan["CUHK"].isin(level_3_course)]
+    level_3_or_above_credit = level_3_df["Credits"].sum() + level_4_credit
+    
+    st.session_state.requirement_status["1st Major"][f"Elective (3000+)"] = [
+            level_3_or_above_credit >= graduate_requirement["1st Major"]["Elective (3000+)"], 
+            level_3_or_above_credit 
+        ]
 
 def major_2_info(major_2 : str) -> None:
     st.info("Only the grade of the Research Component counts in the Major GPA for the Second Major")
@@ -294,6 +377,7 @@ def major_2_info(major_2 : str) -> None:
             key = f"major_2_{i}"
         )
         
+        # Auto-check completion
         study_plan = st.session_state.study_plan[0][f"2nd Major - {i}"]
         # Remove unplanned courses
         filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
@@ -405,10 +489,7 @@ def show_overall(major_2 : str):
         ucore_df,
         disabled = ["Item", "Requirement"],
         hide_index = True
-    )    
-    
-    st.write(st.session_state.requirement_status)
-    
+    )        
     
     ## ---------------- Check 1st major requirement ---------------- 
     st.subheader("1st Major (IDA)")
@@ -431,7 +512,6 @@ def show_overall(major_2 : str):
     ## ---------------- Check 2nd major requirement ----------------    
     st.subheader(f"2nd Major ({major_2})")
     major_2_requirement = graduate_requirement["2nd Major"]
-    st.write(st.session_state.requirement_status["2nd Major"])
     major_2_requirement_df = pd.DataFrame(
         {
             "Item" : major_2_requirement.keys(),
@@ -441,7 +521,6 @@ def show_overall(major_2 : str):
             "Fulfil" : [i[0] for i in st.session_state.requirement_status["2nd Major"].values()]
         }
     )
-    st.session_state.requirement_status["2nd Major"].values()
     st.dataframe(
         major_2_requirement_df,
         hide_index = True
