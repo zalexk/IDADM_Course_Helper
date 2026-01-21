@@ -473,58 +473,61 @@ def show_planner(year : int):
 def show_overall(major_2 : str):
     st.header("Graduation Requirements")
     
+    ucore, major = st.columns(2)
+    
     ## ---------------- Check UCore Requirement ---------------- 
-    st.subheader("University Core")
-    # Display requirements status
-    ucore_requirement = graduate_requirement["University Core"]
-    
-    ucore_df = pd.DataFrame(
-        {
-            "Item" : ucore_requirement.keys(),
-            "Requirement" : ucore_requirement.values(),
-            "Fulfil" : st.session_state.requirement_status["University Core"].values()
-        }
-    )
-    ucore_requirement_status = st.data_editor(
-        ucore_df,
-        disabled = ["Item", "Requirement"],
-        hide_index = True
-    )        
-    
-    ## ---------------- Check 1st major requirement ---------------- 
-    st.subheader("1st Major (IDA)")
-    major_1_requirement = graduate_requirement["1st Major"]
-    major_1_requirement_df = pd.DataFrame(
-        {
-            "Item" : major_1_requirement.keys(),
-            "Requirement" : major_1_requirement.values(),
-            "Credits" : [i[1] for i in st.session_state.requirement_status["1st Major"].values()],
-            
-            "Fulfil" : [i[0] for i in st.session_state.requirement_status["1st Major"].values()]
-        }
-    )
-    st.session_state.requirement_status["1st Major"].values()
-    st.dataframe(
-        major_1_requirement_df,
-        hide_index = True
-    )
-    
-    ## ---------------- Check 2nd major requirement ----------------    
-    st.subheader(f"2nd Major ({major_2})")
-    major_2_requirement = graduate_requirement["2nd Major"]
-    major_2_requirement_df = pd.DataFrame(
-        {
-            "Item" : major_2_requirement.keys(),
-            "Requirement" : major_2_requirement.values(),
-            "Credits" : [i[1] for i in st.session_state.requirement_status["2nd Major"].values()],
-            
-            "Fulfil" : [i[0] for i in st.session_state.requirement_status["2nd Major"].values()]
-        }
-    )
-    st.dataframe(
-        major_2_requirement_df,
-        hide_index = True
-    )
+    with ucore:
+        st.subheader("University Core")
+        # Display requirements status
+        ucore_requirement = graduate_requirement["University Core"]
+        
+        ucore_df = pd.DataFrame(
+            {
+                "Item" : ucore_requirement.keys(),
+                "Requirement" : ucore_requirement.values(),
+                "Fulfil" : st.session_state.requirement_status["University Core"].values()
+            }
+        )
+        ucore_requirement_status = st.data_editor(
+            ucore_df,
+            disabled = ["Item", "Requirement"],
+            hide_index = True
+        )        
+    with major:
+        ## ---------------- Check 1st major requirement ---------------- 
+        st.subheader("1st Major (IDA)")
+        major_1_requirement = graduate_requirement["1st Major"]
+        major_1_requirement_df = pd.DataFrame(
+            {
+                "Item" : major_1_requirement.keys(),
+                "Requirement" : major_1_requirement.values(),
+                "Credits" : [i[1] for i in st.session_state.requirement_status["1st Major"].values()],
+                
+                "Fulfil" : [i[0] for i in st.session_state.requirement_status["1st Major"].values()]
+            }
+        )
+        st.session_state.requirement_status["1st Major"].values()
+        st.dataframe(
+            major_1_requirement_df,
+            hide_index = True
+        )
+        
+        ## ---------------- Check 2nd major requirement ----------------    
+        st.subheader(f"2nd Major ({major_2})")
+        major_2_requirement = graduate_requirement["2nd Major"]
+        major_2_requirement_df = pd.DataFrame(
+            {
+                "Item" : major_2_requirement.keys(),
+                "Requirement" : major_2_requirement.values(),
+                "Credits" : [i[1] for i in st.session_state.requirement_status["2nd Major"].values()],
+                
+                "Fulfil" : [i[0] for i in st.session_state.requirement_status["2nd Major"].values()]
+            }
+        )
+        st.dataframe(
+            major_2_requirement_df,
+            hide_index = True
+        )
 
 # ---------------- Main App ----------------    
 if __name__ == "__main__":
