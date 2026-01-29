@@ -92,7 +92,25 @@ def update_requirement(major_2 : str):
         "Total Credit": False 
     } # Default all the requirements are not fulfilled
 
+def check_credit_limit(year : int, sem : int, total_credit : int):
+    upper_limit = 18
+    lower_limit = 9
+    
+    if sem == 3: # Stand for summer terms
+        upper_limit = 6
+        lower_limit = 0
+    elif sem == 0: # Stand for the whole academic year
+        upper_limit = 39
+        lower_limit = 18
+        
+    elif year == 1:
+        upper_limit = 19
 
+    # Return True for within the limit
+    if not(lower_limit <= total_credit <= upper_limit):
+        st.error(f"""You are over / under the course load ({lower_limit} <= {total_credit} <= {upper_limit}).
+                 
+**Please submit relevant applications for the approval**.""")
 
 def update_study_plan():
     """
@@ -396,7 +414,6 @@ def major_2_info(major_2 : str) -> None:
             ]
        
 def show_planner(year : int):
-    
     study_plan = st.session_state.overall_study_plan[0] # Get the overall study plan
 
     sem1_period = f"Year {year} Sem 1"
@@ -411,9 +428,13 @@ def show_planner(year : int):
 
     with sem1:
         st.subheader(f"Sem 1 ({sem1_campus})")
-
+        
         filtered_study_plan = study_plan[study_plan["Study Period"] == sem1_period].filter([sem1_campus, "Credits"])
-
+        total_credit = filtered_study_plan["Credits"].sum()
+        
+        check_credit_limit(year, 1, total_credit)
+            
+        
         st.dataframe(
             filtered_study_plan,
             height = "content",
@@ -421,15 +442,19 @@ def show_planner(year : int):
             hide_index = True
         )
 
+        
         st.metric("Total Credits", 
-                value = filtered_study_plan["Credits"].sum()
+                value = total_credit
                 )
 
     with sem2:
         st.subheader(f"Sem 2 ({sem2_campus})")
 
         filtered_study_plan = study_plan[study_plan["Study Period"] == sem2_period].filter([sem2_campus, "Credits"])
-
+        
+        total_credit = filtered_study_plan["Credits"].sum()
+        check_credit_limit(year, 2, total_credit)
+        
         st.dataframe(
             filtered_study_plan,
             height = "content",
@@ -437,9 +462,10 @@ def show_planner(year : int):
             hide_index = True
         )
         st.metric("Total Credits", 
-              value = filtered_study_plan["Credits"].sum()
+              value = total_credit
             )
-
+        
+    # Summer terms
     if year < 4:
         summer_periods = [
             f"Year {year} Summer (CUHK)", 
@@ -450,6 +476,10 @@ def show_planner(year : int):
         st.subheader("Summer Session")
         filtered_study_plan = study_plan[study_plan["Study Period"].isin(summer_periods)].filter(["CUHK", "CUHKSZ", "Credits"])
 
+        total_credit = filtered_study_plan["Credits"].sum()
+        check_credit_limit(year, 3, total_credit)
+        # 3 stands for summer terms
+        
         left, right = st.columns(2)
         with left:
             st.dataframe(
@@ -460,17 +490,21 @@ def show_planner(year : int):
             )
         with right:
             st.metric("Total Credits", 
-                value = filtered_study_plan["Credits"].sum()
+                value = total_credit
                 )
 
     # Show total credits per year
     filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
+    
+    total_credit = filtered_study_plan["Credits"].sum()
+    check_credit_limit(year, 0, total_credit) 
+    # 0 stands for the whole academic year
 
     st.metric("**Total Credits for the Year**", 
-        value = filtered_study_plan["Credits"].sum()
+        value = total_credit
         )
     
-def show_overall(major_2 : str):
+def show_requirement(major_2 : str):
     st.header("Graduation Requirements")
     
     ucore, major = st.columns(2)
@@ -529,6 +563,15 @@ def show_overall(major_2 : str):
             hide_index = True
         )
 
+def show_overall():
+    st.info("It is used to export your study plan into `.csv` format.")
+    st.dataframe(
+        st.session_state.overall_study_plan[0],
+        height = "content",
+        column_order = None,
+        hide_index = True
+    )
+
 # ---------------- Main App ----------------    
 if __name__ == "__main__":
     st.set_page_config(
@@ -560,7 +603,7 @@ if __name__ == "__main__":
         
         update_study_plan()
         with planner:      
-            y1, y2, y3, y4, overall = st.tabs(["Year 1", "Year 2", "Year 3", "Year 4", "Overall"])
+            y1, y2, y3, y4, grad_requirement, overall = st.tabs(["Year 1", "Year 2", "Year 3", "Year 4", "Graduation Requirements", "Overall"])
             with y1:
                 show_planner(1)
             with y2:
@@ -569,6 +612,8 @@ if __name__ == "__main__":
                 show_planner(3)
             with y4:
                 show_planner(4)
+            with grad_requirement:
+                show_requirement(major_2)
             with overall:
-                show_overall(major_2)
+                show_overall()
     

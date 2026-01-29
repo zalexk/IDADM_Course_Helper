@@ -67,6 +67,11 @@ with open("data/course_list.json") as jsonfile:
 with open("data/2nd_major_credit_requirement.json") as jsonfile:
     major_2_requirement = json.load(jsonfile)
 
+"""
+Explanation of similar variable names
+- course_list : Major's Required Courses, Electives etc.
+- course_info : Course_id : [Course_name, Credit]
+"""
 
 def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | dict[str, str]:
     if major == 'all':
