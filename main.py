@@ -110,7 +110,7 @@ def check_credit_limit(year : int, sem : int, total_credit : int):
     if not(lower_limit <= total_credit <= upper_limit):
         st.error(f"""You are over / under the course load ({lower_limit} <= {total_credit} <= {upper_limit}).
                  
-**Please submit relevant applications for the approval**.""")
+**You need to submit relevant applications for the approval**.""")
 
 def update_study_plan():
     """
@@ -121,12 +121,26 @@ def update_study_plan():
             [df for df in st.session_state.study_plan[0].values()],
             ignore_index=True
         )
+        
 def determine_level(course_id : str) -> int:
     if data.determine_campus(course_id) == "sz" :
         index = 3
     else:
         index = 4
     return int(course_id[index])
+
+def table_editor(course_table : pd.DataFrame, element_key : str, col_config : dict = study_period_col_config, num_of_rows : str = "fixed", disabled_col : list[str] = ["CUHK", "CUHKSZ", "Credits"]) -> pd.DataFrame:
+    df = st.data_editor(
+        course_table,
+        column_order = None,
+        hide_index = True,
+        height = "content",
+        num_rows = num_of_rows, 
+        column_config = col_config,
+        disabled = disabled_col,
+        key = element_key
+    )
+    return df
 
 def ucore_info():
     course_list = data.get_course_list("University Core")["Required Courses"]
@@ -150,12 +164,14 @@ def ucore_info():
         step = "int"
     )
     
-    st.session_state.study_plan[0]["University Core"] = st.data_editor(
+    st.session_state.study_plan[0]["University Core"] = table_editor(
         course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-        num_rows = "dynamic",
-        column_config = study_period_col_config,
-        key = "ucore_data" # Add unique key
+        element_key = "ucore_data",
+        num_of_rows = "dynamic",
+        col_config = study_period_col_config,
+        disabled_col = []
     )
+    
 
     # Check the fulfillment of UCORE requirement
     ## Remove unplanned courses
@@ -209,15 +225,11 @@ def IDA_info(major_2 : str) -> None:
             }
         )
         
-        st.session_state.study_plan[0][f"IDA - {i}"] = st.data_editor(
+        st.session_state.study_plan[0][f"IDA - {i}"] =  table_editor(
             course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-            column_order = None,
-            hide_index = True,
-            height = "content",
-            column_config = study_period_col_config,
-            disabled = ["CUHK", "CUHKSZ", "Credits"],
-            key = f"IDA_{i}_data"
+            element_key = f"IDA_{i}_data"
         )
+    
         
         # Auto-check completion
         if i != "COOP": # Exclude COOP as it is compulsory
@@ -269,16 +281,11 @@ At least 12 units level 3000+ (incl 6 units level 4000+)
                 "Study Period" : [" " for _ in range(len(course_list))]
             }
         )
-        
-        st.session_state.study_plan[0][f"IDA - {i}"] = st.data_editor(
+        st.session_state.study_plan[0][f"IDA - {i}"] = table_editor(
             course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-            column_order = None,
-            hide_index = True,
-            height = "content",
-            column_config = study_period_col_config,
-            disabled = ["CUHK", "CUHKSZ", "Credits"],
-            key = f"IDA_Elective_{i}"
+            element_key = f"IDA_Elective_{i}"
         )
+    
         
         # Auto-check completion
         study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
@@ -385,15 +392,11 @@ def major_2_info(major_2 : str) -> None:
             }
         )
         
-        st.session_state.study_plan[0][f"2nd Major - {i}"] = st.data_editor(
+        st.session_state.study_plan[0][f"2nd Major - {i}"] = table_editor(
             course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-            column_order = None,
-            hide_index = True,
-            height = "content",
-            column_config = study_period_col_config,
-            disabled = ["CUHK", "CUHKSZ", "Credits"],
-            key = f"major_2_{i}"
+            element_key = f"major_2_{i}"
         )
+        
         
         # Auto-check completion
         study_plan = st.session_state.study_plan[0][f"2nd Major - {i}"]
@@ -423,9 +426,10 @@ def show_planner(year : int):
     sem2_campus = study_campus[sem2_period]
 
     periods_for_year = [sem1_period, sem2_period]
-
+    sem_credit_limit = 19 if (year == 1) else 18
+    
     sem1, sem2 = st.columns(2)
-
+    
     with sem1:
         st.subheader(f"Sem 1 ({sem1_campus})")
         
@@ -441,10 +445,11 @@ def show_planner(year : int):
             column_order = None,
             hide_index = True
         )
-
+        
         
         st.metric("Total Credits", 
-                value = total_credit
+                value = total_credit,
+                delta = sem_credit_limit - total_credit
                 )
 
     with sem2:
@@ -462,7 +467,8 @@ def show_planner(year : int):
             hide_index = True
         )
         st.metric("Total Credits", 
-              value = total_credit
+              value = total_credit,
+              delta = sem_credit_limit - total_credit
             )
         
     # Summer terms
@@ -488,21 +494,25 @@ def show_planner(year : int):
                 column_order = None,
                 hide_index = True
             )
-        with right:
             st.metric("Total Credits", 
-                value = total_credit
+                value = total_credit,
+                delta = 6 - total_credit
+            )
+        with right:
+            # Show total credits per year
+            filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
+            
+            total_credit = filtered_study_plan["Credits"].sum()
+            check_credit_limit(year, 0, total_credit) 
+            # 0 stands for the whole academic year
+
+            st.metric("**Total Credits for the Year**", 
+                value = total_credit,
+                border = True,
+                delta = 39 - total_credit
                 )
 
-    # Show total credits per year
-    filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
     
-    total_credit = filtered_study_plan["Credits"].sum()
-    check_credit_limit(year, 0, total_credit) 
-    # 0 stands for the whole academic year
-
-    st.metric("**Total Credits for the Year**", 
-        value = total_credit
-        )
     
 def show_requirement(major_2 : str):
     st.header("Graduation Requirements")
