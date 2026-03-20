@@ -3,6 +3,12 @@
 歡迎使用 **IDADM Helper**！本指南將幫助你快速上手，高效規劃你的大學學業。
 
 ---
+> [!IMPORTANT]
+> 打開網頁如果遇到 `This app has gone to sleep due to inactivity. Would you like to wake it back up?`，請點擊 `Yes, get this app back up!` 按鈕。
+>
+> ![Screenshot of Sleep Page](docs/assets/sleep_page.jpg)
+>
+> 這是因為資源所限，所使用的免費網頁托管平台設有自動休眠機制，當網頁未被訪問超過一段時間後，會自動休眠。
 
 ## 1. 初始設定
 

@@ -4,10 +4,12 @@
 
 > [!IMPORTANT]
 > 相關資料是基於 2025 入學（沙田校區）的課程資料。
+>
 > 來自其他入學年份 / 校區同學請謹慎使用。如需使用，請留意資料會否存在差異。
 
 > [!CAUTION]
 > 本項目為個人開發項目，並非官方項目，不代表任何組織。
+> 
 > 由於個人精力有限，無法確保資料的正確性和及時性，資料僅供參考，請多加核查。
 
 ## 📖 使用教程
@@ -16,6 +18,15 @@
 
 ![Screenshot of Homepage](docs/assets/homepage_screenshot.jpg)
 ![Screenshot of Information Engineering](docs/assets/IE_page_screenshot.png)
+
+
+> [!IMPORTANT]
+> 打開網頁如果遇到 `This app has gone to sleep due to inactivity. Would you like to wake it back up?`，請點擊 `Yes, get this app back up!` 按鈕。
+>
+> ![Screenshot of Sleep Page](docs/assets/sleep_page.jpg)
+>
+> 這是因為資源所限，所使用的免費網頁托管平台設有自動休眠機制，當網頁未被訪問超過一段時間後，會自動休眠。
+
 
 ### 🌟 主要特性
 - 支持規劃大學必修課程 (University Core)
