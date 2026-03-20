@@ -1,17 +1,36 @@
-# IDADM Course Helper
+# IDADM Helper
 
-This tool is specifically designed to help CUHK students admitted in the 2025/26 academic year better navigate and understand the IDADM program information.
+这个项目是用于帮助 2025 入学的 CUHK IDADM （沙田校区） 同学进行学业规划的网页应用。
 
-## For Other Years
+> [!IMPORTANT]
+> 相关资料是基于 2025 入学（沙田校区）的课程资料。
+> 来自其他入学年份 / 校区同学请谨慎使用。如需使用，请留意会否存在差异。
 
-For students admitted in other academic years, please use this information as a reference only, and ensure careful fact-checking, as details may have changed.
 
-## Contributions
+> [!CAUTION]
+> 本项目为个人开发项目，并非官方项目，不代表任何组织。
+> 由于个人精力有限，无法确保资料的正确性和及时性，资料仅供参考，请多加核查。
 
-Contributions to this project are highly welcome!
 
-If you find any mistakes or have any suggestions, please feel free to create an [issue](https://github.com/zalexk/IDADM_Course_Helper/issues).
+## 📖 使用教程
 
-## Disclaimer
+### 🌠 界面
 
-Please note that all information provided here is unofficial and should not be treated as a substitute for official CUHK program documentation.
+![Screenshot of Homepage](docs\assets\homepage_screenshot.jpg)
+![Screenshot of Information Engineering](docs\assets\IE_page_screenshot.png)
+
+### 🌟 主要特性
+- 支持规划大学必修课程 (Ucore)
+- 支持规划 IDADM 课程两个主修的必修课和选修课
+- 支持计算是否达成课程毕业学分要求
+- 支持计算是否超出学校修读学分限制
+
+## 贡献
+我非常欢迎对项目的贡献，您可以通过以下方式贡献：
+
+- 贡献代码：开发新功能或优化现有代码
+- 修复错误：提交您发现的错误修复
+- 维护问题：帮助管理 GitHub 问题
+- 产品设计：参与设计讨论
+- 撰写文档：改进用户手册和指南
+- 社区参与：加入讨论并帮助用户

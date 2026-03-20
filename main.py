@@ -1,5 +1,7 @@
 import streamlit as st
 from src import data_retrieval as data
+from src.pdf_generator import generate_study_plan_pdf
+from src.word_generator import generate_study_plan_docx
 import pandas as pd
 
 # ---------------- Config ----------------
@@ -71,7 +73,6 @@ def select_major(major_list : tuple) -> str | None:
         index = None,
         placeholder = "Select your second major"
     )
-    
     return major
 
 def update_requirement(major_2 : str):
@@ -129,7 +130,14 @@ def determine_level(course_id : str) -> int:
         index = 4
     return int(course_id[index])
 
-def table_editor(course_table : pd.DataFrame, element_key : str, col_config : dict = study_period_col_config, num_of_rows : str = "fixed", disabled_col : list[str] = ["CUHK", "CUHKSZ", "Credits"]) -> pd.DataFrame:
+def table_editor(
+        course_table : pd.DataFrame, 
+        element_key : str, 
+        col_config : dict = study_period_col_config, 
+        num_of_rows : str = "fixed", 
+        disabled_col : list[str] = ["CUHK", "CUHKSZ", "Credits"]
+    ) -> pd.DataFrame:
+    
     df = st.data_editor(
         course_table,
         column_order = None,
@@ -573,8 +581,37 @@ def show_requirement(major_2 : str):
             hide_index = True
         )
 
-def show_overall():
-    st.info("It is used to export your study plan into `.csv` format.")
+def show_overall(major_2: str):
+    st.info("You can view and export your overall study plan here.")
+    
+    col_pdf, col_word = st.columns(2)
+
+    with col_pdf:
+        # PDF Export
+        try:
+            pdf_bytes = generate_study_plan_pdf(st.session_state.overall_study_plan[0], major_2)
+            st.download_button(
+                label="Export as PDF",
+                data=pdf_bytes,
+                file_name=f"study_plan_{major_2}.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"Failed to prepare PDF: {str(e)}")
+
+    with col_word:
+        # Word Export
+        try:
+            word_stream = generate_study_plan_docx(st.session_state.overall_study_plan[0], major_2)
+            st.download_button(
+                label="Export as Word",
+                data=word_stream,
+                file_name=f"study_plan_{major_2}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        except Exception as e:
+            st.error(f"Failed to prepare Word doc: {str(e)}")
+
     st.dataframe(
         st.session_state.overall_study_plan[0],
         height = "content",
@@ -625,5 +662,5 @@ if __name__ == "__main__":
             with grad_requirement:
                 show_requirement(major_2)
             with overall:
-                show_overall()
+                show_overall(major_2)
     
