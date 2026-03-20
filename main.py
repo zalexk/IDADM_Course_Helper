@@ -109,7 +109,7 @@ def check_credit_limit(year : int, sem : int, total_credit : int):
 
     # Return True for within the limit
     if not(lower_limit <= total_credit <= upper_limit):
-        st.error(f"""You are over / under the course load ({lower_limit} <= {total_credit} <= {upper_limit}).
+        st.error(f"""You are over / under the course load ({lower_limit} <= Credits <= {upper_limit}).
                  
 **You need to submit relevant applications for the approval**.""")
 
@@ -481,21 +481,21 @@ def show_planner(year : int):
         
     # Summer terms
     if year < 4:
-        summer_periods = [
-            f"Year {year} Summer (CUHK)", 
-            f"Year {year} Summer (CUHKSZ)"
-        ]
-        periods_for_year.extend(summer_periods)
+        summer, year = st.columns(2)
+        with summer:
+            summer_periods = [
+                f"Year {year} Summer (CUHK)", 
+                f"Year {year} Summer (CUHKSZ)"
+            ]
+            periods_for_year.extend(summer_periods)
 
-        st.subheader("Summer Session")
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(summer_periods)].filter(["CUHK", "CUHKSZ", "Credits"])
+            st.subheader("Summer Session")
+            filtered_study_plan = study_plan[study_plan["Study Period"].isin(summer_periods)].filter(["CUHK", "CUHKSZ", "Credits"])
 
-        total_credit = filtered_study_plan["Credits"].sum()
-        check_credit_limit(year, 3, total_credit)
-        # 3 stands for summer terms
-        
-        left, right = st.columns(2)
-        with left:
+            total_credit = filtered_study_plan["Credits"].sum()
+            check_credit_limit(year, 3, total_credit)
+            # 3 stands for summer terms
+            
             st.dataframe(
                 filtered_study_plan,
                 height = "content",
@@ -506,20 +506,39 @@ def show_planner(year : int):
                 value = total_credit,
                 delta = 6 - total_credit
             )
-        with right:
+            
+        with year:
+            st.subheader("Whole Academic Year")
             # Show total credits per year
             filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
             
             total_credit = filtered_study_plan["Credits"].sum()
-            check_credit_limit(year, 0, total_credit) 
-            # 0 stands for the whole academic year
-
+            
             st.metric("**Total Credits for the Year**", 
                 value = total_credit,
                 border = True,
                 delta = 39 - total_credit
                 )
-
+            check_credit_limit(year, 0, total_credit) 
+            # 0 stands for the whole academic year
+    
+    elif year == 4:
+        st.subheader("Whole Academic Year")
+        # Show total credits per year
+        check_credit_limit(year, 0, total_credit) 
+        # 0 stands for the whole academic year
+        
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
+        
+        total_credit = filtered_study_plan["Credits"].sum()
+        
+        st.metric("**Total Credits for the Year**", 
+            value = total_credit,
+            border = True,
+            delta = 39 - total_credit
+            )
+        
+        
     
     
 def show_requirement(major_2 : str):

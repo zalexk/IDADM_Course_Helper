@@ -62,8 +62,8 @@ def generate_study_plan_pdf(overall_study_plan_df: pd.DataFrame, major_2_name: s
             if not period_df.empty:
                 pdf.set_font("Helvetica", "B", 11)
                 
-                # If the period name already contains the campus (like in Summer terms), don't repeat it
-                title = f"{period} ({campus})" if campus not in period else period
+                # Use simple period name for title to avoid redundancy like "Year 1 Summer (CUHK) (CUHK)"
+                title = period
                 pdf.cell(0, 8, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 
                 # Reset font to regular for the table
