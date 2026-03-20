@@ -648,6 +648,10 @@ if __name__ == "__main__":
     st.title("IDADM Course Information (HK)")
     st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="❗")
     
+    st.link_button(
+        "使用指南 User Guide",
+        "https://github.com/zalexk/IDADM_Course_Helper/blob/main/docs/user_guide.md"
+    )
     
     if major_2 := select_major(data.major_list[2:]):
         update_requirement(major_2)

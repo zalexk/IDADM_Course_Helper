@@ -36,10 +36,10 @@
 ### 本地部署
 
 ``` bash
-`git clone https://github.com/yourusername/IDADM-Helper.git`
-`cd IDADM-Helper`
-`pip install -r requirements.txt`
-`streamlit run main.py`
+git clone https://github.com/yourusername/IDADM-Helper.git
+cd IDADM-Helper
+pip install -r requirements.txt
+streamlit run main.py
 ```
 
 
