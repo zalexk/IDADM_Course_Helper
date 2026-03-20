@@ -16,8 +16,8 @@
 
 ### 🌠 界面
 
-![Screenshot of Homepage](docs\assets\homepage_screenshot.jpg)
-![Screenshot of Information Engineering](docs\assets\IE_page_screenshot.png)
+![Screenshot of Homepage](docs/assets/homepage_screenshot.jpg)
+![Screenshot of Information Engineering](docs/assets/IE_page_screenshot.png)
 
 ### 🌟 主要特性
 - 支持规划大学必修课程 (Ucore)
