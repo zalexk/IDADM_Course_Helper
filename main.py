@@ -41,7 +41,7 @@ graduate_requirement = {
             "Total Credit" : 129
         }
     
-study_campus = {
+STUDY_CAMPUS = {
         "Year 1 Sem 1": "CUHK",
         "Year 1 Sem 2": "CUHKSZ",
         "Year 1 Summer (CUHK)": "CUHK",
@@ -61,7 +61,7 @@ study_campus = {
 study_period_col_config = {
                         "Study Period" : st.column_config.SelectboxColumn(
                             "Study Period",
-                            options = list(study_campus.keys())
+                            options = list(STUDY_CAMPUS.keys())
                         )
                     }
 
@@ -185,7 +185,7 @@ def ucore_info():
     ## Remove unplanned courses
     study_plan = st.session_state.study_plan[0]["University Core"]
     
-    filter_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+    filter_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
     
     ## Check GE: Foundation Courses
     GE_Foundation_Courses = {"UGFH1000 | In Dialogue with Humanity", "UGFN1000 | In Dialogue with Nature"}
@@ -243,7 +243,7 @@ def IDA_info(major_2 : str) -> None:
         if i != "COOP": # Exclude COOP as it is compulsory
             # Remove unplanned courses
             study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
-            filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+            filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
             
             st.session_state.requirement_status["1st Major"][i] = [
                 len(study_plan) == len(filtered_study_plan), # Determine True / False
@@ -298,7 +298,7 @@ At least 12 units level 3000+ (incl 6 units level 4000+)
         # Auto-check completion
         study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
         # Remove unplanned courses
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
         
         finished_credits = filtered_study_plan["Credits"].sum() # Calculate total credits
             
@@ -409,7 +409,7 @@ def major_2_info(major_2 : str) -> None:
         # Auto-check completion
         study_plan = st.session_state.study_plan[0][f"2nd Major - {i}"]
         # Remove unplanned courses
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(study_campus.keys()))]
+        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
         
         if i != "2nd Major Elective Courses": 
             st.session_state.requirement_status["2nd Major"][i] = [
@@ -430,8 +430,8 @@ def show_planner(year : int):
     sem1_period = f"Year {year} Sem 1"
     sem2_period = f"Year {year} Sem 2"
 
-    sem1_campus = study_campus[sem1_period]
-    sem2_campus = study_campus[sem2_period]
+    sem1_campus = STUDY_CAMPUS[sem1_period]
+    sem2_campus = STUDY_CAMPUS[sem2_period]
 
     periods_for_year = [sem1_period, sem2_period]
     sem_credit_limit = 19 if (year == 1) else 18
@@ -455,7 +455,7 @@ def show_planner(year : int):
         )
         
         
-        st.metric("Total Credits", 
+        st.metric("Subtotal Credits", 
                 value = total_credit,
                 delta = sem_credit_limit - total_credit
                 )
@@ -474,7 +474,7 @@ def show_planner(year : int):
             column_order = None,
             hide_index = True
         )
-        st.metric("Total Credits", 
+        st.metric("Subtotal Credits", 
               value = total_credit,
               delta = sem_credit_limit - total_credit
             )
@@ -502,7 +502,7 @@ def show_planner(year : int):
                 column_order = None,
                 hide_index = True
             )
-            st.metric("Total Credits", 
+            st.metric("Subtotal Credits", 
                 value = total_credit,
                 delta = 6 - total_credit
             )
@@ -641,11 +641,11 @@ def show_overall(major_2: str):
 # ---------------- Main App ----------------    
 if __name__ == "__main__":
     st.set_page_config(
-        page_title = "IDADM Course Information (HK)",
+        page_title = "IDADM Course Helper (HK)",
         layout="wide"
     )
     
-    st.title("IDADM Course Information (HK)")
+    st.title("IDADM Course Helper (HK)")
     st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="❗")
     
     st.link_button(
@@ -653,7 +653,7 @@ if __name__ == "__main__":
         "https://github.com/zalexk/IDADM_Course_Helper/blob/main/docs/user_guide.md"
     )
     
-    if major_2 := select_major(data.major_list[2:]):
+    if major_2 := select_major(data.MAJOR_LIST[2:]):
         update_requirement(major_2)
         
         st.caption("\\* Data updated as of 10 Jan 2026")

@@ -1,4 +1,4 @@
-# IDADM Helper
+# IDADM Course Helper
 
 這個項目是用於幫助 2025 入學的 CUHK IDADM（沙田校區）同學進行學業規劃的網頁應用
 

@@ -1,6 +1,6 @@
-# IDADM Helper 使用指南 📘
+# IDADM Course Helper 使用指南 📘
 
-歡迎使用 **IDADM Helper**！本指南將幫助你快速上手，高效規劃你的大學學業。
+歡迎使用 **IDADM Course Helper**！本指南將幫助你快速上手，高效規劃你的大學學業。
 
 ---
 > [!IMPORTANT]

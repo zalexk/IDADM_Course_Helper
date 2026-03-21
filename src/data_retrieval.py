@@ -3,7 +3,7 @@ import json
 from bidict import bidict
 from typing import Literal
 
-major_list = (
+MAJOR_LIST = (
         "University Core",
         "Interdisciplinary Data Analytics",
         "Information Engineering",
@@ -18,9 +18,20 @@ major_list = (
         "Mathematics and Applied Mathematics",
         "Statistics (CUHK(SZ))"
         )
+"""
+Files Description:
+    - course_list.csv : Course Information (Course ID, Course Name, Credit Units)
+
+    - equivalence_courses.csv : Equivalence Courses (Major, Course ID (CUHK), Course Name (CUHK), Course ID (CUHKSZ), Course Name (CUHKSZ))
+
+    - course_list.json : Course list for each major (i.e. Faculty Package, Required Courses, Elective Courses, Research Component)
+
+    - 2nd_major_credit_requirement.json : Second Major's Credit Requirement (Major, Credit Requirement)
+"""
+
 
 with open("data/course_list.csv", newline='', encoding = 'utf-8') as csvfile:
-    # Read course_list.csv + Save to course_info
+    # Course Information (Course ID, Course Name, Credit Units)
     course_info : dict[str, list[str]] = {}
     # course_info : {code : [title, units]}
     
@@ -32,11 +43,13 @@ with open("data/course_list.csv", newline='', encoding = 'utf-8') as csvfile:
 
 
 with open("data/equivalence_courses.csv", newline='', encoding = 'utf-8') as csvfile:  
+    # Equivalence Courses (Major, Course ID (CUHK), Course Name (CUHK), Course ID (CUHKSZ), Course Name (CUHKSZ))
+    
     reader = csv.DictReader(csvfile, 
                             delimiter=',',
                             fieldnames = ['major', 'code(hk)', 'name(hk)', 'code(sz)', 'name(sz)'])
     
-    equivalence_courses: dict[str, dict[str, str]] = {major: {} for major in major_list}
+    equivalence_courses: dict[str, dict[str, str]] = {major: {} for major in MAJOR_LIST}
     """
     equivalence_courses: {
         major : {
@@ -62,9 +75,11 @@ with open("data/equivalence_courses.csv", newline='', encoding = 'utf-8') as csv
             course_info[row['code(sz)']] = [row['name(sz)'], unit]
             
 with open("data/course_list.json") as jsonfile:
+    # Course list for each major (i.e. Faculty Package, Required Courses, Elective Courses, Research Component)
     course_list = json.load(jsonfile)          
 
 with open("data/2nd_major_credit_requirement.json") as jsonfile:
+    # Second Major's Credit Requirement (Major, Credit Requirement)
     major_2_requirement = json.load(jsonfile)
 
 """
@@ -77,7 +92,7 @@ def get_equivalence_courses(major : str = 'all') -> dict[str, dict[str, str]] | 
     if major == 'all':
         return equivalence_courses
     
-    elif major not in major_list:
+    elif major not in MAJOR_LIST:
         print(f'"{major} Not Found" : "Please check again"')
         return {"Major Not Found" : "Please check again"}
     
@@ -101,7 +116,7 @@ def get_course_info(request : str = "all") -> dict[str, list[str]] | list[str] :
 def get_course_list(major : str = "all") -> dict[str, str | list[str]]:
     if major == "all":
         return course_list
-    elif major not in major_list:
+    elif major not in MAJOR_LIST:
         return {"Not Found": f"{major} Not Found"}
     else:
         return course_list[major]
