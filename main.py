@@ -481,17 +481,20 @@ def show_planner(year : int):
         
     # Summer terms
     if year < 4:
-        summer, year = st.columns(2)
-        with summer:
+        summer_col, year_col = st.columns(2)
+        
+        with summer_col:
+            
             summer_periods = [
                 f"Year {year} Summer (CUHK)", 
                 f"Year {year} Summer (CUHKSZ)"
             ]
             periods_for_year.extend(summer_periods)
-
+            
             st.subheader("Summer Session")
+            
             filtered_study_plan = study_plan[study_plan["Study Period"].isin(summer_periods)].filter(["CUHK", "CUHKSZ", "Credits"])
-
+            
             total_credit = filtered_study_plan["Credits"].sum()
             check_credit_limit(year, 3, total_credit)
             # 3 stands for summer terms
@@ -507,7 +510,7 @@ def show_planner(year : int):
                 delta = 6 - total_credit
             )
             
-        with year:
+        with year_col:
             st.subheader("Whole Academic Year")
             # Show total credits per year
             filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
