@@ -48,9 +48,9 @@
 
 > [!IMPORTANT]
 >
-> 為方便計算畢業要求，請優先在 Faculty Package 和 Required Courses 選擇課程。
+> 為方便計算畢業要求進度，請優先在 Faculty Package 和 Required Courses 選擇課程。
 > 
-> 因為計算畢業要求是根據你在選擇區域所代表的類別計算。
+> 因為計算畢業要求進度是根據 **你所選擇的課程所屬區域的類別計算** 。
 > 
 > > 假如你第一主修 (1st Major) 有一門課，且你的第二主修 (2nd Major) 也有這門課。
 > >

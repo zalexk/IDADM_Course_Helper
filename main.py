@@ -649,8 +649,7 @@ if __name__ == "__main__":
     )
     
     st.title("IDADM Course Helper (HK)")
-    st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="❗")
-    st.info("Your data will be lost if you refresh or close the website.Please export your data before leaving.", icon="❗")
+    st.warning("Your data will be lost if you refresh or close the website.Please export your data before leaving.", icon="❗")
     
     st.link_button(
         "使用指南 User Guide",
@@ -662,7 +661,7 @@ if __name__ == "__main__":
         
         st.caption("\\* Data updated as of 10 Jan 2026")
         st.caption("** This is unofficial. Please be aware that there may be mistakes.")
-        
+        st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY")
         # Hide the tabs if 2nd major is not selected
         ucore, major_1_tab, major_2_tab, planner = st.tabs(["University Core", "Interdisciplinary Data Analytics", major_2, "Planner"])
 
