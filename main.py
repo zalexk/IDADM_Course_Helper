@@ -650,6 +650,7 @@ if __name__ == "__main__":
     
     st.title("IDADM Course Helper (HK)")
     st.info("It is applicable to students admitted in 2025/26 from CUHK ONLY", icon="❗")
+    st.info("Your data will be lost if you refresh or close the website.Please export your data before leaving.", icon="❗")
     
     st.link_button(
         "使用指南 User Guide",
