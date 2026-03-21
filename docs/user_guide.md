@@ -46,6 +46,17 @@
 - 規劃你的 **Faculty Package**、**Required Courses** 和 **COOP** 課程。
 - **選修課規劃**：從 Group A 和 Group B 中選擇課程。系統會自動計算你是否滿足「至少 12 學分 (Credits) 3000 級或以上課程（含 6 學分 4000 級）」的特殊要求。
 
+> [!IMPORTANT]
+>
+> 為方便計算畢業要求進度，請優先在 Faculty Package 和 Required Courses 選擇課程。
+> 
+> 因為計算畢業要求進度是根據 **你所選擇的課程所屬區域的類別計算** 。
+> 
+> > 假如你第一主修 (1st Major) 中的 Elective Course 有一門課，且你的第二主修 (2nd Major) 的 Required Courses 也有這門課。
+> >
+> > 你在第一主修 (1st Major) 中的 Elective Course 中選擇修讀該課，將不會被系統識別為符合第二主修 (2nd Major) 的 Required Courses。
+
+
 ### 第三步：規劃第二主修
 在以你選擇的 **專業 (Major) 名稱命名的標籤頁 (Tab)** 中：
 - 重覆第二步規劃該專業的必修課 (Required Courses)、研究項目 (Research Component) 和選修課 (Electives)。
