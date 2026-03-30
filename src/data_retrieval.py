@@ -3,7 +3,7 @@ import json
 from bidict import bidict
 from typing import Literal
 
-MAJOR_LIST = (
+MAJOR_LIST : tuple[str, ...] = (
         "University Core",
         "Interdisciplinary Data Analytics",
         "Information Engineering",
@@ -138,7 +138,13 @@ def convert_course_id(major : str, course_id : str) -> str:
     else:
         return data.inverse[course_id]
 
-def show_course_info(major : str, course_list : str | list[str], campus : Literal['hk', 'sz'], request_type : str = "courses") -> list[str | int]:
+def show_course_info(
+    major : str, 
+    course_list : str | list[str], 
+    campus : Literal['hk', 'sz'], 
+    request_type : str = "courses"
+) -> list[str | int]:
+    
     output_list : list[str] = []
     
     if type(course_list) == str: # Convert to list

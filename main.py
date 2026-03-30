@@ -1,3 +1,4 @@
+from streamlit.elements.lib.column_types import SelectboxOptionValue
 import streamlit as st
 from src import data_retrieval as data
 from src.pdf_generator import generate_study_plan_pdf
@@ -21,7 +22,7 @@ graduate_requirement = {
                 "Chinese Language" : 5,
                 "English Language" : 8,
                 "GE: Foundation Courses" : 6,
-                "GE: Four Areas" : 7,
+                "GE: Four Areas (Area A, C, D)" : 7,
                 "College GE" : 6,
                 "Understanding China" : 1,
                 "Hong Kong in the Wider Constitutional Order" : 1,
@@ -61,7 +62,7 @@ STUDY_CAMPUS = {
 study_period_col_config = {
                         "Study Period" : st.column_config.SelectboxColumn(
                             "Study Period",
-                            options = list(STUDY_CAMPUS.keys())
+                            options = list[SelectboxOptionValue](STUDY_CAMPUS.keys())
                         )
                     }
 
@@ -181,6 +182,8 @@ def ucore_info():
     )
     
 
+    
+
     # Check the fulfillment of UCORE requirement
     ## Remove unplanned courses
     study_plan = st.session_state.study_plan[0]["University Core"]
@@ -257,7 +260,7 @@ def IDA_info(major_2 : str) -> None:
     
     st.info("""Requirement: 6-15 units from Group A + 12-21 units from Group B
             
-At least 12 units level 3000+ (incl 6 units level 4000+)
+At least 12 units level 3000+ (including 6 units level 4000+)
 """)
     elective_study_plan = pd.DataFrame(columns=["CUHK", "CUHKSZ", "Credits", "Study Period"]) 
     # Create an empty DataFrame
@@ -613,10 +616,10 @@ def show_overall(major_2: str):
         try:
             pdf_bytes = generate_study_plan_pdf(st.session_state.overall_study_plan[0], major_2)
             st.download_button(
-                label="Export as PDF",
-                data=pdf_bytes,
-                file_name=f"study_plan_{major_2}.pdf",
-                mime="application/pdf"
+                label = "Export as PDF",
+                data = pdf_bytes,
+                file_name = f"Study Plan - {major_2}.pdf",
+                mime = "application/pdf"
             )
         except Exception as e:
             st.error(f"Failed to prepare PDF: {str(e)}")
@@ -626,10 +629,10 @@ def show_overall(major_2: str):
         try:
             word_stream = generate_study_plan_docx(st.session_state.overall_study_plan[0], major_2)
             st.download_button(
-                label="Export as Word",
-                data=word_stream,
-                file_name=f"study_plan_{major_2}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                label = "Export as Word",
+                data = word_stream,
+                file_name = f"Study Plan - {major_2}.docx",
+                mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
         except Exception as e:
             st.error(f"Failed to prepare Word doc: {str(e)}")
@@ -653,7 +656,7 @@ if __name__ == "__main__":
     
     st.link_button(
         "使用指南 User Guide",
-        "https://github.com/zalexk/IDADM_Course_Helper/blob/main/docs/user_guide.md"
+        "https://alex-zsk.notion.site/userguide"
     )
     
     if major_2 := select_major(data.MAJOR_LIST[2:]):
@@ -689,4 +692,3 @@ if __name__ == "__main__":
                 show_requirement(major_2)
             with overall:
                 show_overall(major_2)
-    
