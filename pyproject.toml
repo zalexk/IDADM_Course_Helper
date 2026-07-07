@@ -1,0 +1,12 @@
+[project]
+name = "idadm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "bidict>=0.23.1",
+    "pytest>=9.1.1",
+    "streamlit>=1.58.0",
+    "supabase>=2.31.0",
+]
