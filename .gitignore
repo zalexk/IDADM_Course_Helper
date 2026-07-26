@@ -59,9 +59,16 @@ profile.json.gz
 # Claude
 .claude/
 
+# OhMyOpenCode
+.omo/
+
+# Pytest
+.pytest_cache/
+
 # Others
 depreciated/
 plan/
 .venv/
 .vscode/
 todo.md
+secrets.toml

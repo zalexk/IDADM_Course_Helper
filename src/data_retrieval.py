@@ -215,38 +215,37 @@ def get_course_id_list(context : CourseDataContext) -> list[str]:
     return list(context.course_info.keys())
 
 
-# def show_course_info(
-#     context : CourseDataContext,
-#     major : str, 
-#     course_list : str | list[str], 
-#     campus : Literal['hk', 'sz'], 
-#     request_type : str = "courses"
-# ) -> list[str | int]:
+def show_course_info(
+    context : CourseDataContext,
+    major : str, 
+    course_list : str | list[str], 
+    campus : Literal['hk', 'sz'], 
+    request_type : str = "courses"
+) -> list[str | int]:
     
-#     output_list : list[int | str] = []
+    output_list : list[int | str] = []
     
-#     if isinstance(course_list, str):
-#         course_list = [course_list] # Convert to list object
-        
-#     for cid in course_list:
-#         if request_type == "credits":
-#             output_list.append(int(get_course_info(context, cid)[1]))
+    courses: list[str] = [course_list] if isinstance(course_list, str) else course_list
+          
+    for cid in courses:
+        if request_type == "credits":
+            output_list.append(int(get_course_info(context, cid)[1])) # type: ignore[return-value]
             
-#         elif request_type == "courses":
-#             if determine_campus(cid) != campus:
-#                 try:
-#                     cid = convert_course_id(context, major, cid)
+        elif request_type == "courses":
+            if determine_campus(cid) != campus:
+                try:
+                    cid = convert_course_id(context, major, cid)
                     
-#                 except InfoMissingError:
-#                     output_list.append("Unavailable")
-#                     continue
+                except InfoMissingError:
+                    output_list.append("Unavailable")
+                    continue
             
-#             output_list.append(f"{cid} | {get_course_info(context, cid)[0]}")
+            output_list.append(f"{cid} | {get_course_info(context, cid)[0]}") # type: ignore[return-value]
             
-#         else:
-#             raise InfoMissingError("Wrong value in parameter type")
+        else:
+            raise InfoMissingError("Wrong value in parameter type")
                 
-#     return output_list
+    return output_list
     
 def get_major_2_requirement(context: CourseDataContext, major : str, category : str) -> int:
     return context.major_2_requirement[major][category]

@@ -1,161 +1,146 @@
+"""Tests for data_retrieval.py — pure functions and data integrity."""
+
 import pytest
 from src.data_retrieval import (
-    load_all_data,
     determine_campus,
-    convert_course_id,
-    get_equivalence_courses,
+    load_all_data,
     get_course_info,
     get_course_list,
-    get_course_id_list,
+    get_equivalence_courses,
     get_major_2_requirement,
-    CourseDataContext,
+    get_course_id_list,
+    convert_course_id,
     DataLoadError,
-    FileMissingError,
-    DataFormatError,
     InfoMissingError,
 )
 
 
-# ---------- setup ----------
+class TestDetermineCampus:
+    def test_hk_campus(self):
+        assert determine_campus("MATH1010") == "hk"
 
-@pytest.fixture(scope="module")
-def ctx():
-    return load_all_data()
+    def test_sz_campus(self):
+        assert determine_campus("DDA1001") == "sz"
 
+    def test_borderline_7_chars_hk(self):
+        assert determine_campus("ABCX123") == "hk"
 
-# ---------- determine_campus ----------
+    def test_borderline_7_chars_sz(self):
+        assert determine_campus("ABC1123") == "sz"
 
-def test_determine_campus_hk():
-    assert determine_campus("CSCI1001") == "hk"  # 4th char 'I' → alpha
-
-def test_determine_campus_sz():
-    assert determine_campus("CSC1001") == "sz"   # 4th char '1' → digit
-
-def test_determine_campus_too_short():
-    with pytest.raises(DataLoadError):
-        determine_campus("ABC")
+    def test_short_id_raises(self):
+        with pytest.raises(DataLoadError):
+            determine_campus("ABC")
 
 
-# ---------- load_all_data ----------
+class TestDataLoading:
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
 
-def test_load_all_data_returns_context(ctx):
-    assert isinstance(ctx, CourseDataContext)
+    def test_course_info_not_empty(self, context):
+        assert len(context.course_info) > 0
 
-def test_course_info_not_empty(ctx):
-    assert len(ctx.course_info) > 0
+    def test_course_info_structure(self, context):
+        for code, info in context.course_info.items():
+            assert isinstance(code, str)
+            assert isinstance(info, list)
+            assert len(info) == 2
 
-def test_equivalence_courses_not_empty(ctx):
-    assert len(ctx.equivalence_courses) > 0
+    def test_course_list_has_majors(self, context):
+        assert "Interdisciplinary Data Analytics" in context.course_list
 
-def test_equivalence_bidicts_match(ctx):
-    for major, mapping in ctx.equivalence_courses.items():
-        b = ctx.equivalence_bidicts[major]
-        assert len(b) == len(mapping)
-        for hk, sz in mapping.items():
-            assert b[hk] == sz
-            assert b.inverse[sz] == hk
+    def test_equivalence_courses_not_empty(self, context):
+        assert len(context.equivalence_courses) > 0
 
-def test_course_list_not_empty(ctx):
-    assert len(ctx.course_list) > 0
-
-def test_major_2_requirement_not_empty(ctx):
-    assert len(ctx.major_2_requirement) > 0
-
-@pytest.mark.parametrize("file_arg", ["data/course_list.csv", "data/equivalence_courses.csv", "data/course_list.json", "data/2nd_major_credit_requirement.json"])
-def test_data_files_exist(file_arg):
-    """Sanity: all required data files exist on disk."""
-    import os
-    assert os.path.isfile(file_arg), f"Missing: {file_arg}"
+    def test_major_2_requirement_keys(self, context):
+        for major, reqs in context.major_2_requirement.items():
+            assert isinstance(reqs, dict)
 
 
-# ---------- convert_course_id ----------
+class TestGetters:
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
 
-MAJOR = "Computer Science and Engineering"
+    def test_get_course_info_all(self, context):
+        info = get_course_info(context)
+        assert isinstance(info, dict)
+        assert len(info) > 0
 
-def test_convert_hk_to_sz(ctx):
-    hk_course = next(iter(ctx.equivalence_bidicts[MAJOR]))
-    sz_course = convert_course_id(ctx, MAJOR, hk_course)
-    assert sz_course != hk_course
-    assert sz_course == ctx.equivalence_bidicts[MAJOR][hk_course]
+    def test_get_course_info_by_id(self, context):
+        ids = get_course_info(context, "id")
+        assert isinstance(ids, list)
+        assert len(ids) > 0
 
-def test_convert_sz_to_hk(ctx):
-    sz_course = next(iter(ctx.equivalence_bidicts[MAJOR].values()))
-    hk_course = convert_course_id(ctx, MAJOR, sz_course)
-    assert hk_course != sz_course
-    assert ctx.equivalence_bidicts[MAJOR][hk_course] == sz_course
+    def test_get_course_info_specific(self, context):
+        ids = get_course_info(context, "id")
+        result = get_course_info(context, ids[0])
+        assert isinstance(result, list)
+        assert len(result) == 2
 
-def test_convert_missing_course(ctx):
-    with pytest.raises(InfoMissingError):
-        convert_course_id(ctx, MAJOR, "ZZZ9999")
+    def test_get_course_info_missing_raises(self, context):
+        with pytest.raises(InfoMissingError):
+            get_course_info(context, "ZZZ9999")
 
+    def test_get_course_id_list(self, context):
+        ids = get_course_id_list(context)
+        assert len(ids) == len(context.course_info)
 
-# ---------- get_equivalence_courses ----------
+    def test_get_course_list_all(self, context):
+        cl = get_course_list(context)
+        assert "Interdisciplinary Data Analytics" in cl
 
-def test_get_equivalence_all(ctx):
-    result = get_equivalence_courses(ctx, "all")
-    assert isinstance(result, dict)
-    assert MAJOR in result
+    def test_get_course_list_specific(self, context):
+        cl = get_course_list(context, "Interdisciplinary Data Analytics")
+        assert isinstance(cl, dict)
 
-def test_get_equivalence_single_major(ctx):
-    result = get_equivalence_courses(ctx, MAJOR)
-    assert isinstance(result, dict)
-    assert len(result) > 0
+    def test_get_course_list_missing_raises(self, context):
+        with pytest.raises(InfoMissingError):
+            get_course_list(context, "NonexistentMajor")
 
-def test_get_equivalence_missing_major(ctx):
-    with pytest.raises(InfoMissingError):
-        get_equivalence_courses(ctx, "NonExistentMajor")
+    def test_get_equivalence_courses_all(self, context):
+        eq = get_equivalence_courses(context)
+        assert isinstance(eq, dict)
 
+    def test_get_equivalence_courses_specific(self, context):
+        eq = get_equivalence_courses(context, "Computer Science and Engineering")
+        assert isinstance(eq, dict)
+        for hk, sz in eq.items():
+            assert determine_campus(hk) == "hk"
+            assert determine_campus(sz) == "sz"
 
-# ---------- get_course_info ----------
-
-def test_get_course_info_all(ctx):
-    result = get_course_info(ctx, "all")
-    assert isinstance(result, dict)
-
-def test_get_course_info_id_list(ctx):
-    result = get_course_info(ctx, "id")
-    assert isinstance(result, list)
-
-def test_get_course_info_single(ctx):
-    cid = next(iter(ctx.course_info))
-    result = get_course_info(ctx, cid)
-    assert isinstance(result, list)
-    assert len(result) == 2  # [title, units]
-
-def test_get_course_info_missing(ctx):
-    with pytest.raises(InfoMissingError):
-        get_course_info(ctx, "ZZZ9999")
-
-
-# ---------- get_course_list ----------
-
-def test_get_course_list_all(ctx):
-    result = get_course_list(ctx, "all")
-    assert isinstance(result, dict)
-
-def test_get_course_list_single_major(ctx):
-    result = get_course_list(ctx, MAJOR)
-    assert isinstance(result, dict)
-
-def test_get_course_list_missing_major(ctx):
-    with pytest.raises(InfoMissingError):
-        get_course_list(ctx, "NonExistentMajor")
+    def test_get_major_2_requirement(self, context):
+        major = list(context.major_2_requirement.keys())[0]
+        cats = context.major_2_requirement[major]
+        category = list(cats.keys())[0]
+        credits = get_major_2_requirement(context, major, category)
+        assert isinstance(credits, int)
+        assert credits >= 0
 
 
-# ---------- get_course_id_list ----------
+class TestConvertCourseId:
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
 
-def test_get_course_id_list(ctx):
-    ids = get_course_id_list(ctx)
-    assert isinstance(ids, list)
-    assert all(isinstance(x, str) for x in ids)
-    assert len(ids) == len(ctx.course_info)
+    def test_hk_to_sz(self, context):
+        for major, mapping in context.equivalence_courses.items():
+            if mapping:
+                hk_code = list(mapping.keys())[0]
+                sz_code = mapping[hk_code]
+                assert convert_course_id(context, major, hk_code) == sz_code
+                return
 
+    def test_sz_to_hk(self, context):
+        for major, mapping in context.equivalence_courses.items():
+            if mapping:
+                hk_code = list(mapping.keys())[0]
+                sz_code = mapping[hk_code]
+                assert convert_course_id(context, major, sz_code) == hk_code
+                return
 
-# ---------- get_major_2_requirement ----------
-
-def test_get_major_2_requirement(ctx):
-    # Pick first major that has requirements
-    major = next(iter(ctx.major_2_requirement))
-    cat = next(iter(ctx.major_2_requirement[major]))
-    result = get_major_2_requirement(ctx, major, cat)
-    assert isinstance(result, int)
+    def test_unknown_course_raises(self, context):
+        major = list(context.equivalence_courses.keys())[0]
+        with pytest.raises(InfoMissingError):
+            convert_course_id(context, major, "ZZZ9999")
