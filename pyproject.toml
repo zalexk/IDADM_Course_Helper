@@ -1,0 +1,18 @@
+[project]
+name = "idadm"
+version = "0.1.0"
+description = "CUHK IDADM 4-year dual-campus curriculum planner (Streamlit)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "bidict>=0.23.1",
+    "streamlit>=1.58.0",
+    "supabase>=2.31.0",
+    "fpdf2>=2.7.9",
+    "python-docx>=1.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

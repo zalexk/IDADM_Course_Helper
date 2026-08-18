@@ -1,650 +1,12 @@
-from streamlit.elements.lib.column_types import SelectboxOptionValue
 import streamlit as st
-from src import data_retrieval as data
-from src.pdf_generator import generate_study_plan_pdf
-from src.word_generator import generate_study_plan_docx
-import pandas as pd
+from app import constant, ucore, ida, major_2, planner, login
+import src.data_retrieval as data
 
-# ---------------- Config ----------------
-if "study_plan" not in st.session_state:
-    st.session_state.study_plan = [{}]
-    # Store in session state
-    
-if "overall_study_plan" not in st.session_state:
-    st.session_state.overall_study_plan = [pd.DataFrame(columns=["CUHK", "CUHKSZ", "Credits", "Study Period"])]
-    
-if "planner_update_count" not in st.session_state:
-    st.session_state.planner_update_count = 0 
-    
 
-graduate_requirement = {
-            "University Core" : {
-                "Chinese Language" : 5,
-                "English Language" : 8,
-                "GE: Foundation Courses" : 6,
-                "GE: Four Areas (Area A, C, D)" : 7,
-                "College GE" : 6,
-                "Understanding China" : 1,
-                "Hong Kong in the Wider Constitutional Order" : 1,
-                "Digital Literacy and Computational Thinking" : 3,
-                "Physical Education" : 2
-            },
-            "1st Major" : {
-                "Faculty Package" : 9,
-                "Required Courses" : 18,
-                "COOP" : 3,
-                "Elective" : 27,
-                "Elective Group A" : 6,
-                "Elective Group B" : 12,
-                "Elective (3000+)" : 12,
-                "Elective (4000)" : 6
-            },
-            "Total Credit" : 129
-        }
-    
-STUDY_CAMPUS = {
-        "Year 1 Sem 1": "CUHK",
-        "Year 1 Sem 2": "CUHKSZ",
-        "Year 1 Summer (CUHK)": "CUHK",
-        "Year 1 Summer (CUHKSZ)": "CUHKSZ",
-        "Year 2 Sem 1": "CUHKSZ",
-        "Year 2 Sem 2": "CUHK",
-        "Year 2 Summer (CUHK)": "CUHK",
-        "Year 2 Summer (CUHKSZ)": "CUHKSZ",
-        "Year 3 Sem 1": "CUHK",
-        "Year 3 Sem 2": "CUHKSZ",
-        "Year 3 Summer (CUHK)": "CUHK",
-        "Year 3 Summer (CUHKSZ)": "CUHKSZ",
-        "Year 4 Sem 1": "CUHKSZ",
-        "Year 4 Sem 2": "CUHK"
-    }
+@st.cache_data
+def load_cache_data() -> data.CourseDataContext:
+    return data.load_all_data()
 
-study_period_col_config = {
-                        "Study Period" : st.column_config.SelectboxColumn(
-                            "Study Period",
-                            options = list[SelectboxOptionValue](STUDY_CAMPUS.keys())
-                        )
-                    }
-
-# ---------------- Functions ----------------
-def select_major(major_list : tuple) -> str | None:
-    major = st.selectbox(
-        "2nd Major",
-        major_list, 
-        index = None,
-        placeholder = "Select your second major"
-    )
-    return major
-
-def update_requirement(major_2 : str):
-    graduate_requirement["2nd Major"] = {
-        "Required Courses" : data.get_major_2_requirement(major_2, "Required Courses"),
-        "Research Component" : 3,
-        "2nd Major Elective Courses" : data.get_major_2_requirement(major_2, "Elective Courses")
-    }
-    
-    if "requirement_status" not in st.session_state:
-        st.session_state.requirement_status = {
-        "University Core": {_: False for _ in graduate_requirement["University Core"]},
-        
-        "1st Major": {_: [False, 0] for _ in graduate_requirement["1st Major"]},
-        
-        "2nd Major" : {_: [False, 0] for _ in graduate_requirement["2nd Major"]},
-        
-        "Total Credit": False 
-    } # Default all the requirements are not fulfilled
-
-def check_credit_limit(year : int, sem : int, total_credit : int):
-    upper_limit = 18
-    lower_limit = 9
-    
-    if sem == 3: # Stand for summer terms
-        upper_limit = 6
-        lower_limit = 0
-    elif sem == 0: # Stand for the whole academic year
-        upper_limit = 39
-        lower_limit = 18
-        
-    elif year == 1:
-        upper_limit = 19
-
-    # Return True for within the limit
-    if not(lower_limit <= total_credit <= upper_limit):
-        st.error(f"""You are over / under the course load ({lower_limit} <= Credits <= {upper_limit}).
-                 
-**You need to submit relevant applications for the approval**.""")
-
-def update_study_plan():
-    """
-    Concatenates all dataframes currently stored in study_planner[0].
-    """
-    if st.session_state.study_plan[0]:
-        st.session_state.overall_study_plan[0] = pd.concat(
-            [df for df in st.session_state.study_plan[0].values()],
-            ignore_index=True
-        )
-        
-def determine_level(course_id : str) -> int:
-    if data.determine_campus(course_id) == "sz" :
-        index = 3
-    else:
-        index = 4
-    return int(course_id[index])
-
-def table_editor(
-        course_table : pd.DataFrame, 
-        element_key : str, 
-        col_config : dict = study_period_col_config, 
-        num_of_rows : str = "fixed", 
-        disabled_col : list[str] = ["CUHK", "CUHKSZ", "Credits"]
-    ) -> pd.DataFrame:
-    
-    df = st.data_editor(
-        course_table,
-        column_order = None,
-        hide_index = True,
-        height = "content",
-        num_rows = num_of_rows, 
-        column_config = col_config,
-        disabled = disabled_col,
-        key = element_key
-    )
-    return df
-
-def ucore_info():
-    course_list = data.get_course_list("University Core")["Required Courses"]
-    
-    course_table = pd.DataFrame(
-        {
-            "CUHK" : data.show_course_info("University Core", course_list, "hk"), 
-            "CUHKSZ" : data.show_course_info("University Core", course_list, "sz"), 
-            "Credits" : data.show_course_info("University Core", course_list, "hk", "credits"),
-            "Study Period" : [" " for i in range(len(course_list))]
-        }
-    )
-    # Create empty DataFrame for user input
-    
-    study_period_col_config["Credits"] = st.column_config.NumberColumn(
-        "Credits",
-        width = "small",
-        required = True,
-        min_value = 0,
-        max_value = 10,
-        step = "int"
-    )
-    
-    st.session_state.study_plan[0]["University Core"] = table_editor(
-        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-        element_key = "ucore_data",
-        num_of_rows = "dynamic",
-        col_config = study_period_col_config,
-        disabled_col = []
-    )
-    
-
-    
-
-    # Check the fulfillment of UCORE requirement
-    ## Remove unplanned courses
-    study_plan = st.session_state.study_plan[0]["University Core"]
-    
-    filter_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
-    
-    ## Check GE: Foundation Courses
-    GE_Foundation_Courses = {"UGFH1000 | In Dialogue with Humanity", "UGFN1000 | In Dialogue with Nature"}
-    
-    st.session_state.requirement_status["University Core"]["GE: Foundation Courses"] = GE_Foundation_Courses.issubset(set(filter_study_plan["CUHK"]))
-    
-    ## Check the remaining courses
-    CORE_COURSE = {
-        "Understanding China" : "UGCP1001 | Understanding China",
-        "Hong Kong in the Wider Constitutional Order" : "UGCP1002 | Hong Kong in the Wider Constitutional Order",
-        "Digital Literacy and Computational Thinking" : "ENGG1003 | Digital Literacy and Computational Thinking"
-        }
-    
-    for item in CORE_COURSE.keys():
-        st.session_state.requirement_status["University Core"][item] = CORE_COURSE[item] in set(filter_study_plan["CUHK"])
-        
-    
-def IDA_info(major_2 : str) -> None:
-    for i in ("Faculty Package", "Required Courses", "COOP"):
-        st.subheader(i)
-        
-        course_list = data.get_course_list("Interdisciplinary Data Analytics")[i]
-        
-        course_table = pd.DataFrame(
-            {
-                "CUHK": data.show_course_info(
-                        "Interdisciplinary Data Analytics",
-                        course_list,
-                        "hk"
-                    ),
-                
-                "CUHKSZ": data.show_course_info(
-                    "Interdisciplinary Data Analytics",
-                    course_list,
-                    "sz"
-                ),
-                "Credits" : data.show_course_info(
-                    "Interdisciplinary Data Analytics",
-                    course_list,
-                    "hk", # Campus can be ignored
-                    "credits"
-                ),
-                "Study Period" : [" " for _ in range(len(course_list))]
-                # Generate empty data with same row with other columns
-            }
-        )
-        
-        st.session_state.study_plan[0][f"IDA - {i}"] =  table_editor(
-            course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-            element_key = f"IDA_{i}_data"
-        )
-    
-        
-        # Auto-check completion
-        if i != "COOP": # Exclude COOP as it is compulsory
-            # Remove unplanned courses
-            study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
-            filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
-            
-            st.session_state.requirement_status["1st Major"][i] = [
-                len(study_plan) == len(filtered_study_plan), # Determine True / False
-                filtered_study_plan["Credits"].sum() # Calculate total credits
-            ]
-        else:
-            st.session_state.requirement_status["1st Major"]["COOP"] = [True, 3]
-            # As field trips are compulsory
-    
-    st.subheader("Elective Courses")
-    
-    st.info("""Requirement: 6-15 units from Group A + 12-21 units from Group B
-            
-At least 12 units level 3000+ (including 6 units level 4000+)
-""")
-    elective_study_plan = pd.DataFrame(columns=["CUHK", "CUHKSZ", "Credits", "Study Period"]) 
-    # Create an empty DataFrame
-    
-    for i in ("A", "B"):
-        st.markdown(f"**Group {i}**")
-        
-        course_list = data.get_course_list(major_2)["1st Major Elective Courses"][i]
-        
-        course_table = pd.DataFrame(
-            {
-                "CUHK": data.show_course_info(
-                        "Interdisciplinary Data Analytics",
-                        course_list,
-                        "hk"
-                    ),
-                
-                "CUHKSZ": data.show_course_info(
-                    "Interdisciplinary Data Analytics",
-                    course_list,
-                    "sz"
-                ),
-                "Credits": data.show_course_info(
-                    "Interdisciplinary Data Analytics",
-                    course_list,
-                    "sz",
-                    "credits"
-                ),
-                "Study Period" : [" " for _ in range(len(course_list))]
-            }
-        )
-        st.session_state.study_plan[0][f"IDA - {i}"] = table_editor(
-            course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-            element_key = f"IDA_Elective_{i}"
-        )
-    
-        
-        # Auto-check completion
-        study_plan = st.session_state.study_plan[0][f"IDA - {i}"]
-        # Remove unplanned courses
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
-        
-        finished_credits = filtered_study_plan["Credits"].sum() # Calculate total credits
-            
-        st.session_state.requirement_status["1st Major"][f"Elective Group {i}"] = [
-            finished_credits >= graduate_requirement["1st Major"][f"Elective Group {i}"], # Determine True / False
-            finished_credits 
-        ]
-        
-        elective_study_plan = pd.concat(
-            [elective_study_plan, filtered_study_plan],
-            ignore_index=True
-        ) # Combine Group A and Group B
-
-    # Auto-check completion
-    finished_credits = elective_study_plan["Credits"].sum() # Calculate total credits
-    
-    st.session_state.requirement_status["1st Major"]["Elective"] = [
-        finished_credits >= graduate_requirement["1st Major"]["Elective"],
-        finished_credits
-    ]
-    
-    # Calculate the credits of level 3000 & 4000 courses
-    elective_course_list_by_group = data.get_course_list(major_2)["1st Major Elective Courses"]
-
-    # Combine course list of Group A and B
-    elective_course_list = elective_course_list_by_group["A"] + elective_course_list_by_group["B"]
-    
-    elective_course_dict_by_level = {
-        3 : [],
-        4 : []
-    }
-    
-    # Group by level
-    for id in elective_course_list:
-        level = determine_level(id)
-        if 3 <= level <= 4:
-            elective_course_dict_by_level[level].append(id)
-    
-    level_4_course = data.show_course_info(
-        major_2, 
-        elective_course_dict_by_level[4],
-        campus = "hk"
-    )
-    
-    level_3_course = data.show_course_info(
-        major_2, 
-        elective_course_dict_by_level[3],
-        campus = "hk"
-    )
-    
-    level_4_df = elective_study_plan[elective_study_plan["CUHK"].isin(level_4_course)]
-    level_4_credit = level_4_df["Credits"].sum()
-    
-    st.session_state.requirement_status["1st Major"][f"Elective (4000)"] = [
-            level_4_credit >= graduate_requirement["1st Major"]["Elective (4000)"], 
-            level_4_credit 
-        ]
-    
-    
-    level_3_df = elective_study_plan[elective_study_plan["CUHK"].isin(level_3_course)]
-    level_3_or_above_credit = level_3_df["Credits"].sum() + level_4_credit
-    
-    st.session_state.requirement_status["1st Major"][f"Elective (3000+)"] = [
-            level_3_or_above_credit >= graduate_requirement["1st Major"]["Elective (3000+)"], 
-            level_3_or_above_credit 
-        ]
-
-def major_2_info(major_2 : str) -> None:
-    st.info("Only the grade of the Research Component counts in the Major GPA for the Second Major")
-    
-    for i in ("Required Courses", "Research Component", "Elective Courses"):
-        st.subheader(i)
-        
-        if i == "Elective Courses":
-            i = "2nd Major Elective Courses"
-            
-        course_list = data.get_course_list(major_2)[i]
-        
-        course_table = pd.DataFrame(
-            {
-                "CUHK": data.show_course_info(
-                        major_2,
-                        course_list,
-                        "hk"
-                    ),
-                
-                "CUHKSZ": data.show_course_info(
-                    major_2,
-                    course_list,
-                    "sz"
-                    ),
-                "Credits": data.show_course_info(
-                    major_2,
-                    course_list,
-                    "sz",
-                    "credits"
-                    ),
-                "Study Period" : [" " for _ in range(len(course_list))]
-            }
-        )
-        
-        st.session_state.study_plan[0][f"2nd Major - {i}"] = table_editor(
-            course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-            element_key = f"major_2_{i}"
-        )
-        
-        
-        # Auto-check completion
-        study_plan = st.session_state.study_plan[0][f"2nd Major - {i}"]
-        # Remove unplanned courses
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(list(STUDY_CAMPUS.keys()))]
-        
-        if i != "2nd Major Elective Courses": 
-            st.session_state.requirement_status["2nd Major"][i] = [
-                len(study_plan) == len(filtered_study_plan), # Determine True / False
-                filtered_study_plan["Credits"].sum() # Calculate total credits
-            ]
-        else:
-            finished_credits = filtered_study_plan["Credits"].sum() # Calculate total credits
-            
-            st.session_state.requirement_status["2nd Major"][i] = [
-                finished_credits >= graduate_requirement["2nd Major"]["2nd Major Elective Courses"], # Determine True / False
-                finished_credits 
-            ]
-       
-def show_planner(year : int):
-    study_plan = st.session_state.overall_study_plan[0] # Get the overall study plan
-
-    sem1_period = f"Year {year} Sem 1"
-    sem2_period = f"Year {year} Sem 2"
-
-    sem1_campus = STUDY_CAMPUS[sem1_period]
-    sem2_campus = STUDY_CAMPUS[sem2_period]
-
-    periods_for_year = [sem1_period, sem2_period]
-    sem_credit_limit = 19 if (year == 1) else 18
-    
-    sem1, sem2 = st.columns(2)
-    
-    with sem1:
-        st.subheader(f"Sem 1 ({sem1_campus})")
-        
-        filtered_study_plan = study_plan[study_plan["Study Period"] == sem1_period].filter([sem1_campus, "Credits"])
-        total_credit = filtered_study_plan["Credits"].sum()
-        
-        check_credit_limit(year, 1, total_credit)
-            
-        
-        st.dataframe(
-            filtered_study_plan,
-            height = "content",
-            column_order = None,
-            hide_index = True
-        )
-        
-        
-        st.metric("Subtotal Credits", 
-                value = total_credit,
-                delta = sem_credit_limit - total_credit
-                )
-
-    with sem2:
-        st.subheader(f"Sem 2 ({sem2_campus})")
-
-        filtered_study_plan = study_plan[study_plan["Study Period"] == sem2_period].filter([sem2_campus, "Credits"])
-        
-        total_credit = filtered_study_plan["Credits"].sum()
-        check_credit_limit(year, 2, total_credit)
-        
-        st.dataframe(
-            filtered_study_plan,
-            height = "content",
-            column_order = None,
-            hide_index = True
-        )
-        st.metric("Subtotal Credits", 
-              value = total_credit,
-              delta = sem_credit_limit - total_credit
-            )
-        
-    # Summer terms
-    if year < 4:
-        summer_col, year_col = st.columns(2)
-        
-        with summer_col:
-            
-            summer_periods = [
-                f"Year {year} Summer (CUHK)", 
-                f"Year {year} Summer (CUHKSZ)"
-            ]
-            periods_for_year.extend(summer_periods)
-            
-            st.subheader("Summer Session")
-            
-            filtered_study_plan = study_plan[study_plan["Study Period"].isin(summer_periods)].filter(["CUHK", "CUHKSZ", "Credits"])
-            
-            total_credit = filtered_study_plan["Credits"].sum()
-            check_credit_limit(year, 3, total_credit)
-            # 3 stands for summer terms
-            
-            st.dataframe(
-                filtered_study_plan,
-                height = "content",
-                column_order = None,
-                hide_index = True
-            )
-            st.metric("Subtotal Credits", 
-                value = total_credit,
-                delta = 6 - total_credit
-            )
-            
-        with year_col:
-            st.subheader("Whole Academic Year")
-            # Show total credits per year
-            filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
-            
-            total_credit = filtered_study_plan["Credits"].sum()
-            
-            st.metric("**Total Credits for the Year**", 
-                value = total_credit,
-                border = True,
-                delta = 39 - total_credit
-                )
-            check_credit_limit(year, 0, total_credit) 
-            # 0 stands for the whole academic year
-    
-    elif year == 4:
-        st.subheader("Whole Academic Year")
-        # Show total credits per year
-        check_credit_limit(year, 0, total_credit) 
-        # 0 stands for the whole academic year
-        
-        filtered_study_plan = study_plan[study_plan["Study Period"].isin(periods_for_year)].filter(["CUHK", "CUHKSZ", "Credits"])   
-        
-        total_credit = filtered_study_plan["Credits"].sum()
-        
-        st.metric("**Total Credits for the Year**", 
-            value = total_credit,
-            border = True,
-            delta = 39 - total_credit
-            )
-        
-        
-    
-    
-def show_requirement(major_2 : str):
-    st.header("Graduation Requirements")
-    
-    ucore, major = st.columns(2)
-    
-    ## ---------------- Check UCore Requirement ---------------- 
-    with ucore:
-        st.subheader("University Core")
-        # Display requirements status
-        ucore_requirement = graduate_requirement["University Core"]
-        
-        ucore_df = pd.DataFrame(
-            {
-                "Item" : ucore_requirement.keys(),
-                "Requirement" : ucore_requirement.values(),
-                "Fulfil" : st.session_state.requirement_status["University Core"].values()
-            }
-        )
-        ucore_requirement_status = st.data_editor(
-            ucore_df,
-            disabled = ["Item", "Requirement"],
-            hide_index = True
-        )        
-    with major:
-        ## ---------------- Check 1st major requirement ---------------- 
-        st.subheader("1st Major (IDA)")
-        major_1_requirement = graduate_requirement["1st Major"]
-        major_1_requirement_df = pd.DataFrame(
-            {
-                "Item" : major_1_requirement.keys(),
-                "Requirement" : major_1_requirement.values(),
-                "Credits" : [i[1] for i in st.session_state.requirement_status["1st Major"].values()],
-                
-                "Fulfil" : [i[0] for i in st.session_state.requirement_status["1st Major"].values()]
-            }
-        )
-        st.session_state.requirement_status["1st Major"].values()
-        st.dataframe(
-            major_1_requirement_df,
-            hide_index = True
-        )
-        
-        ## ---------------- Check 2nd major requirement ----------------    
-        st.subheader(f"2nd Major ({major_2})")
-        major_2_requirement = graduate_requirement["2nd Major"]
-        major_2_requirement_df = pd.DataFrame(
-            {
-                "Item" : major_2_requirement.keys(),
-                "Requirement" : major_2_requirement.values(),
-                "Credits" : [i[1] for i in st.session_state.requirement_status["2nd Major"].values()],
-                
-                "Fulfil" : [i[0] for i in st.session_state.requirement_status["2nd Major"].values()]
-            }
-        )
-        st.dataframe(
-            major_2_requirement_df,
-            hide_index = True
-        )
-
-def show_overall(major_2: str):
-    st.info("You can view and export your overall study plan here.")
-    
-    col_pdf, col_word = st.columns(2)
-
-    with col_pdf:
-        # PDF Export
-        try:
-            pdf_bytes = generate_study_plan_pdf(st.session_state.overall_study_plan[0], major_2)
-            st.download_button(
-                label = "Export as PDF",
-                data = pdf_bytes,
-                file_name = f"Study Plan - {major_2}.pdf",
-                mime = "application/pdf"
-            )
-        except Exception as e:
-            st.error(f"Failed to prepare PDF: {str(e)}")
-
-    with col_word:
-        # Word Export
-        try:
-            word_stream = generate_study_plan_docx(st.session_state.overall_study_plan[0], major_2)
-            st.download_button(
-                label = "Export as Word",
-                data = word_stream,
-                file_name = f"Study Plan - {major_2}.docx",
-                mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-        except Exception as e:
-            st.error(f"Failed to prepare Word doc: {str(e)}")
-
-    st.dataframe(
-        st.session_state.overall_study_plan[0],
-        height = "content",
-        column_order = None,
-        hide_index = True
-    )
-
-# ---------------- Main App ----------------    
 if __name__ == "__main__":
     st.set_page_config(
         page_title = "IDADM Course Helper (HK)",
@@ -652,43 +14,67 @@ if __name__ == "__main__":
     )
     
     st.title("IDADM Course Helper (HK)")
-    st.warning("Your data will be lost if you refresh or close the website.Please export your data before leaving.", icon="❗")
+    
     
     st.link_button(
         "使用指南 User Guide",
-        "https://alex-zsk.notion.site/userguide"
+        "https://idadm.notion.site/userguide"
     )
     
-    if major_2 := select_major(data.MAJOR_LIST[2:]):
-        update_requirement(major_2)
+    is_guest = "login_status" not in st.session_state or st.session_state["login_status"] is False
+    if is_guest:
+        st.warning(
+            "Please log in (sidebar) to save and view your study plan."
+            "Any selections made before logging in will be discarded on login. "
+            "You cannot use Planner Function before logging in.",
+            icon="🔒",
+        )
+        if login.has_guest_edits() and not st.session_state.get("guest_notice_shown"):
+            login.guest_edits_notice()
+        with st.sidebar:
+            login.ui()
+    major_2nd = st.selectbox(
+        "2nd Major",
+        constant.MAJOR_2nd_list,
+        index = None,
+        placeholder = "Select your second major"
+    )
+    
+    try:
+        context = load_cache_data()
         
-        st.caption("\\* Data updated as of 10 Jan 2026")
-        st.caption("** This is unofficial. Please be aware that there may be mistakes.")
-        st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY")
-        # Hide the tabs if 2nd major is not selected
-        ucore, major_1_tab, major_2_tab, planner = st.tabs(["University Core", "Interdisciplinary Data Analytics", major_2, "Planner"])
+    except data.FileMissingError as e:
+        st.error(f"File Not Found: {e}")
+        st.stop()
+        
+    except data.DataFormatError as e:
+        st.error(f"Wrong File Format: {e}")
+        st.stop()
 
-        with ucore:
-            ucore_info()
+    if major_2nd: # Display only when 2nd major is selected
+        st.caption("\\* Data updated as of 17 Aug 2026")
+        st.caption("** This is unofficial. Please be aware that there may be mistakes.")
+        st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
+
+        ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(
+            [
+                "University Core", 
+                "Interdisciplinary Data Analytics", 
+                major_2nd, 
+                "Planner"
+            ],
+            key="main-tabs", # active tab survives rerun/refresh (session_state)
+        )
+
         
+        with ucore_tab:
+            ucore.ui(context)
+
         with major_1_tab:
-            IDA_info(major_2)
+            ida.ui(context, major_2nd)
 
         with major_2_tab:
-            major_2_info(major_2)
-        
-        update_study_plan()
-        with planner:      
-            y1, y2, y3, y4, grad_requirement, overall = st.tabs(["Year 1", "Year 2", "Year 3", "Year 4", "Graduation Requirements", "Overall"])
-            with y1:
-                show_planner(1)
-            with y2:
-                show_planner(2)
-            with y3:
-                show_planner(3)
-            with y4:
-                show_planner(4)
-            with grad_requirement:
-                show_requirement(major_2)
-            with overall:
-                show_overall(major_2)
+            major_2.ui(context, major_2nd)
+
+        with planner_tab:
+            planner.ui(context, major_2nd)
