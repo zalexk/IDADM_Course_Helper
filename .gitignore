@@ -75,8 +75,3 @@ plan/
 .vscode/
 todo.md
 secrets.toml
-
-# Supabase keep-alive (server cron): pinger script + its secret .env
-supabase-ping.sh
-.env
-
