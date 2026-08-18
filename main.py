@@ -18,7 +18,7 @@ if __name__ == "__main__":
     
     st.link_button(
         "使用指南 User Guide",
-        "https://alex-zsk.notion.site/userguide"
+        "https://idadm.notion.site/userguide"
     )
     
     is_guest = "login_status" not in st.session_state or st.session_state["login_status"] is False
