@@ -49,14 +49,16 @@ IERG3320,Social Media and Human Information Interaction,3
 IERG3810,Microcontrollers and Embedded Systems Laboratory,1
 IERG3820,Communications Lab,1
 IERG3830,Product Design and Development,3
-IERG4004/,E-payment Systems and Cryptocurrency Technologies,3
-FTEC4004,,
+IERG4004/FTEC4004,E-payment Systems and Cryptocurrency Technologies,3
+IERG4004,E-payment Systems and Cryptocurrency Technologies,3
+FTEC4004,E-payment Systems and Cryptocurrency Technologies,3
 IERG4030,Optical Communications,3
 IERG4080,Building Scalable Internet-based Services,3
 IERG4090,Networking Protocols and Systems,3
 IERG4100,Wireless Communication Systems,3
-IERG4130/,Introduction to Cyber Security,3
-CSCI4130,,
+IERG4130/CSCI4130,Introduction to Cyber Security,3
+CSCI4130,Introduction to Cyber Security,3
+IERG4130,Introduction to Cyber Security,3
 IERG4150,Introduction to Cryptography,3
 IERG4160,Image Processing and Visual Understanding,3
 IERG4180,Network Software Design and Programming,3
@@ -113,7 +115,7 @@ MGNT2511,Global Experiential Learning I,1
 MGNT2512,Global Experiential Learning II,1
 MGNT2611,Business Sustainability,2
 MGNT3010,Organizational Behaviour,3
-MGNT3070,Opportunities¡¦ Catching: Strategic Insights and Analysis,3
+MGNT3070,OpportunitiesÂ¡Â¦ Catching: Strategic Insights and Analysis,3
 MGNT4010,Strategic Management,3
 MGNT4090,Technology and Innovation Management,3
 MKTG2010,Marketing Management,3
@@ -232,7 +234,7 @@ ECO2011,Basic Microeconomics,3
 ECO3121,Introductory Econometrics,3
 ECO3160,Game Theory and Business Strategy,3
 ERG3020,Web Analytics and Intelligence,3
-ERG4902,Capstone Project?¢º,3
+ERG4902,Capstone Project?Â¢Âº,3
 FIN2010,Financial Management,3
 FIN3080,Investment Analysis and Portfolio Management,3
 FIN3210,Fintech Theory and Practice,3
@@ -312,7 +314,7 @@ STA4002,Multivariate Statistical Analysis,3
 STA4003,Time Series,3
 STA4005,Survival Modelling,3
 STA4010,Selected Topics in Statistics I,3
-STA4011,Selected Topics in Statistics ¢º,3
+STA4011,Selected Topics in Statistics Â¢Âº,3
 STA4020,Statistical Modelling in Financial Markets,3
 STA4030,Categorical Data Analysis,3
 STA4050,Statistical Capstone,3

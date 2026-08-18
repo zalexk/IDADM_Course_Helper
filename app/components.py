@@ -12,7 +12,15 @@ study_period_col_config: dict[str, Any] = {
     "Study Period": st.column_config.SelectboxColumn(
         "Study Period",
         options=list[SelectboxOptionValue](STUDY_CAMPUS.keys()),
-    )
+    ),
+    "Credits": st.column_config.NumberColumn(
+        "Credits",
+        width="small",
+        required=True,
+        min_value=0,
+        max_value=10,
+        step="int", # type: ignore[return-value]
+    ),
 }
 
 

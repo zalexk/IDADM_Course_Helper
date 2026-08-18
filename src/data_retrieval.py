@@ -2,8 +2,12 @@ import csv
 import json
 from dataclasses import dataclass
 from bidict import bidict
-from typing import Literal
+from typing import Any, Literal, overload
 from app import constant
+import streamlit as st
+
+from src.storage import fetch_data
+
 
 class DataLoadError(Exception): pass
 class FileMissingError(DataLoadError): pass
@@ -16,7 +20,7 @@ Files Description:
 
     - equivalence_courses.csv : Equivalence Courses (Major, Course ID (CUHK), Course Name (CUHK), Course ID (CUHKSZ), Course Name (CUHKSZ))
 
-    - course_list.json : Course list for each major (i.e. Faculty Package, Required Courses, Elective Courses, Research Component)
+    - major_course_list.json : Course list for each major (i.e. Faculty Package, Required Courses, Elective Courses, Research Component)
 
     - 2nd_major_credit_requirement.json : Second Major's Credit Requirement (Major, Credit Requirement)
 """
@@ -120,7 +124,7 @@ def load_all_data() -> CourseDataContext:
         except Exception as e:
             raise DataFormatError(f"{filepath} Parse Fail: {e}") from e 
         
-    course_list = _load_json("data/course_list.json")
+    course_list = _load_json("data/major_course_list.json")
     
     major_2_requirement = _load_json("data/2nd_major_credit_requirement.json")
     
@@ -147,6 +151,18 @@ def determine_campus(course_id : str) -> Literal['hk', 'sz']:
             return 'sz'
     else:
         raise DataLoadError("Wrong Course ID")
+
+def determine_level(course_id : str) -> int:
+    """Extract the level digit (1-4) from a course ID.
+
+    SZ course: level at index 3 (e.g. CSC3050 -> 3).
+    HK course: level at index 4 (e.g. CSCI3320 -> 3).
+    """
+    if determine_campus(course_id) == "sz":
+        index = 3
+    else:
+        index = 4
+    return int(course_id[index])
 
     
 def convert_course_id(context : CourseDataContext, major : str, course_id : str) -> str:
@@ -180,7 +196,12 @@ def get_equivalence_courses(context : CourseDataContext, major : str = 'all') ->
             raise DataFormatError(f"Data Parse Fail: {e}") from e
                  
    
-def get_course_info(context : CourseDataContext, request : str = "all") -> dict[str, list[str]] | list[str]: 
+@overload
+def get_course_info(context : CourseDataContext, request : Literal["all"] = "all") -> dict[str, list[str]]: ...
+@overload
+def get_course_info(context : CourseDataContext, request : str) -> list[str]: ...
+
+def get_course_info(context : CourseDataContext, request : str = "all") -> dict[str, list[str]] | list[str]:
     if request == "all":
         return context.course_info
     
@@ -197,7 +218,7 @@ def get_course_info(context : CourseDataContext, request : str = "all") -> dict[
         except Exception as e:
             raise DataFormatError(f"Data Parse Fail: {e}") from e
         
-def get_course_list(context : CourseDataContext, major : str = "all") -> dict[str, str | list[str]]:
+def get_course_list(context : CourseDataContext, major : str = "all") -> dict[str, Any]:
     if major == "all":
         return context.course_list
     
@@ -215,6 +236,40 @@ def get_course_id_list(context : CourseDataContext) -> list[str]:
     return list(context.course_info.keys())
 
 
+def _course_key(
+    context : CourseDataContext,
+    major : str,
+    cid : str,
+) -> str:
+    """Canonical DB key for a course: HK id, else HK equivalent, else the SZ id itself.
+
+    Collapses a SZ course onto its HK equivalent so the same course shares one
+    study-period row across tabs (要求①). A SZ course with no HK equivalent keeps
+    its own id — never 'Unavailable'.
+    """
+    if determine_campus(cid) == "hk":
+        return cid
+    try:
+        return convert_course_id(context, major, cid)
+    except InfoMissingError:
+        return cid
+
+def _course_label(
+    context : CourseDataContext,
+    major : str,
+    cid : str,
+    campus : Literal['hk', 'sz']
+) -> str:
+    """'CODE Title' label; also the course_id key stored in the DB."""
+    if determine_campus(cid) != campus:
+        try:
+            cid = convert_course_id(context, major, cid)
+        except InfoMissingError:
+            return "Unavailable"
+
+    return f"{cid} {get_course_info(context, cid)[0]}"
+
+
 def show_course_info(
     context : CourseDataContext,
     major : str, 
@@ -223,28 +278,27 @@ def show_course_info(
     request_type : str = "courses"
 ) -> list[str | int]:
     
-    output_list : list[int | str] = []
-    
     courses: list[str] = [course_list] if isinstance(course_list, str) else course_list
-          
+
+    if request_type == "study_period":
+        if not (user_id := st.session_state.get("user_id")):
+            return ["" for _ in courses] # guest: nothing stored
+
+        saved = {row["course_id"]: row["study_period"] for row in fetch_data(user_id)}
+        return [saved.get(_course_key(context, major, cid), "") for cid in courses]
+
+    output_list : list[int | str] = []
+
     for cid in courses:
         if request_type == "credits":
             output_list.append(int(get_course_info(context, cid)[1])) # type: ignore[return-value]
-            
+
         elif request_type == "courses":
-            if determine_campus(cid) != campus:
-                try:
-                    cid = convert_course_id(context, major, cid)
-                    
-                except InfoMissingError:
-                    output_list.append("Unavailable")
-                    continue
-            
-            output_list.append(f"{cid} | {get_course_info(context, cid)[0]}") # type: ignore[return-value]
-            
+            output_list.append(_course_label(context, major, cid, campus))
+
         else:
             raise InfoMissingError("Wrong value in parameter type")
-                
+
     return output_list
     
 def get_major_2_requirement(context: CourseDataContext, major : str, category : str) -> int:

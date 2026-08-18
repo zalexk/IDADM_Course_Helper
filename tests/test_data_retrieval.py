@@ -1,6 +1,10 @@
-"""Tests for data_retrieval.py — pure functions and data integrity."""
+"""Tests for data_retrieval.py and storage.py — pure functions, data integrity,
+and the study-period persistence contract (canonical course key)."""
 
+import pandas as pd
 import pytest
+import streamlit as st
+
 from src.data_retrieval import (
     determine_campus,
     load_all_data,
@@ -12,6 +16,8 @@ from src.data_retrieval import (
     convert_course_id,
     DataLoadError,
     InfoMissingError,
+    _course_key,
+    show_course_info,
 )
 
 
@@ -144,3 +150,283 @@ class TestConvertCourseId:
         major = list(context.equivalence_courses.keys())[0]
         with pytest.raises(InfoMissingError):
             convert_course_id(context, major, "ZZZ9999")
+
+
+class TestCourseKey:
+    """_course_key: canonical DB identity for a course (要求①)."""
+
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
+
+    def test_hk_course_is_self(self, context):
+        # A HK course id is its own canonical key.
+        assert _course_key(context, "Interdisciplinary Data Analytics", "DOTE1030") == "DOTE1030"
+
+    def test_sz_with_hk_equivalent_collapses_to_hk(self, context):
+        # ECO2011 (SZ) <-> DOTE1030 (HK): same course must share one key.
+        assert _course_key(context, "Interdisciplinary Data Analytics", "ECO2011") == "DOTE1030"
+
+    def test_sz_without_equivalent_keeps_own_id(self, context):
+        # A SZ course with no HK equivalent keeps its own id — never "Unavailable".
+        major = "Interdisciplinary Data Analytics"
+        sz_known = set(get_equivalence_courses(context, major).values())
+        sz_no_equiv = next(
+            c for c in get_course_id_list(context)
+            if determine_campus(c) == "sz" and c not in sz_known
+        )
+        key = _course_key(context, major, sz_no_equiv)
+        assert key == sz_no_equiv
+        assert key != "Unavailable"
+
+    def test_equivalent_pair_shares_key(self, context):
+        # 要求①: a HK course and its SZ equivalent produce the same key.
+        major = "Interdisciplinary Data Analytics"
+        equiv = get_equivalence_courses(context, major)
+        hk = next(iter(equiv))
+        sz = equiv[hk]
+        assert _course_key(context, major, hk) == _course_key(context, major, sz)
+
+
+class TestStudyPeriodRead:
+    """show_course_info('study_period'): read-side of the persistence loop."""
+
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
+
+    @pytest.fixture
+    def course_list(self, context):
+        return get_course_list(context, "University Core")["Required Courses"]
+
+    def test_guest_returns_blanks(self, context, course_list):
+        # No user_id in session_state → all blanks, length matches course_list.
+        out = show_course_info(context, "University Core", course_list, "hk", "study_period")
+        assert out == ["" for _ in course_list]
+        assert len(out) == len(course_list)
+
+    def test_logged_in_empty_db_returns_blanks(self, context, course_list):
+        # Logged-in user but no saved rows → all blanks, no InfoMissingError.
+        st.session_state["user_id"] = "test-user"
+        out = show_course_info(context, "University Core", course_list, "hk", "study_period")
+        assert out == ["" for _ in course_list]
+
+    def test_read_is_campus_agnostic(self, context, course_list):
+        # 要求① read-side: key is _course_key, so campus arg no longer affects
+        # the lookup — passing 'hk' or 'sz' yields the same result.
+        st.session_state["user_id"] = "test-user"
+        a = show_course_info(context, "University Core", course_list, "hk", "study_period")
+        b = show_course_info(context, "University Core", course_list, "sz", "study_period")
+        assert a == b
+
+
+class TestDataOnChange:
+    """data_on_change: write-side identity comes from the DataFrame index label."""
+
+    def test_guest_skips_write(self, monkeypatch):
+        import src.storage as storage
+        df = pd.DataFrame(
+            {"CUHK": ["DOTE1030 x"], "CUHKSZ": ["ECO2011 y"], "Credits": [3], "Study Period": ["Y1S1"]},
+            index=["DOTE1030"],
+        )
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        # no user_id set → early return, no upsert
+        storage.data_on_change("anykey", df)
+        assert upserts == []
+
+    def test_rangeindex_guard_fires(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        df = pd.DataFrame(
+            {"CUHK": ["DOTE1030 x"], "CUHKSZ": ["ECO2011 y"], "Credits": [3], "Study Period": ["Y1S1"]}
+        )  # default RangeIndex — must be rejected
+        errors: list[str] = []
+        monkeypatch.setattr(st, "error", lambda *a, **k: errors.append(a[0] if a else ""))
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("badkey", df)
+        assert errors and "course keys" in errors[0]
+        assert upserts == []  # guard returns before any write
+
+    def test_edit_uses_index_label_as_course_id(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["goodkey"] = {
+            "edited_rows": {"0": {"Study Period": "Year 2 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["DOTE1030 Eco"], "CUHKSZ": ["ECO2011 Micro"], "Credits": [3], "Study Period": ["Year 1 Sem 1"]},
+            index=["DOTE1030"],
+        )
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        monkeypatch.setattr(storage, "delete_data", lambda *a, **k: None)
+        storage.data_on_change("goodkey", df)
+        assert len(upserts) == 1
+        assert upserts[0]["course_id"] == "DOTE1030"        # index label, NOT "DOTE1030 Eco"
+        assert upserts[0]["study_period"] == "Year 2 Sem 1"
+        assert upserts[0]["id"] == "test-user"
+
+    def test_delete_uses_index_label(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["delkey"] = {
+            "edited_rows": {},
+            "added_rows": [],
+            "deleted_rows": [0],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["DOTE1030 Eco"], "CUHKSZ": ["ECO2011 Micro"], "Credits": [3], "Study Period": ["Year 1 Sem 1"]},
+            index=["DOTE1030"],
+        )
+        deletes: list[str] = []
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        storage.data_on_change("delkey", df)
+        assert deletes == ["DOTE1030"]  # index label, not the display label
+
+
+class TestUserInputOnChange:
+    """user_input_on_change + per-section wrappers: identity = typed CUHK cell,
+    routed to a section-specific DB table."""
+
+    def test_guest_skips_write(self, monkeypatch):
+        import src.storage as storage
+        df = pd.DataFrame(
+            {"CUHK": ["PHED1001"], "CUHKSZ": [""], "Credits": [1], "Study Period": ["Y1S1"]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("anykey", df)  # no user_id
+        assert upserts == []
+
+    def test_pe_stores_typed_code_in_pe_table(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["pekey"] = {
+            "edited_rows": {"0": {"CUHK": "PHED1001", "Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("pekey", df)
+        assert len(upserts) == 1
+        data, tbl = upserts[0]
+        assert data["course_id"] == "PHED1001"          # typed code, not an index label
+        assert data["study_period"] == "Year 1 Sem 1"
+        assert data["id"] == "test-user"
+        assert tbl == "pe"                              # routed to the PE table
+
+    def test_empty_course_id_skipped(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["pekey2"] = {
+            "edited_rows": {"0": {"Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("pekey2", df)
+        assert upserts == []  # no course code typed yet → nothing to store
+
+
+class TestUserInputRouting:
+    """Each wrapper writes to its own table so sections never collide."""
+
+    def test_college_ge_routes_to_own_table(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["gekey"] = {
+            "edited_rows": {"0": {"CUHK": "UGCP1001", "Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.college_ge_on_change("gekey", df)
+        assert upserts[0][0]["course_id"] == "UGCP1001"
+        assert upserts[0][1] == "college_ge"
+
+    def test_four_area_routes_to_own_table(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["fakey"] = {
+            "edited_rows": {"0": {"CUHK": "UGFN1001", "Study Period": "Year 2 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.four_area_on_change("fakey", df)
+        assert upserts[0][0]["course_id"] == "UGFN1001"
+        assert upserts[0][1] == "four_area_ge"
+
+
+class TestUserInputDynamic:
+    """user_input_on_change handles added/deleted rows (num_rows='dynamic')."""
+
+    def test_added_row_is_upserted(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["addkey"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "UGCP2002", "CUHKSZ": "", "Credits": 3, "Study Period": "Year 2 Sem 2"}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["", ""], "CUHKSZ": ["", ""], "Credits": [3, 3], "Study Period": ["", ""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.college_ge_on_change("addkey", df)
+        assert len(upserts) == 1
+        assert upserts[0][0]["course_id"] == "UGCP2002"
+        assert upserts[0][0]["study_period"] == "Year 2 Sem 2"
+
+    def test_added_row_without_course_id_skipped(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["addkey2"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "", "Study Period": "Year 2 Sem 2"}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.college_ge_on_change("addkey2", df)
+        assert upserts == []
+
+    def test_deleted_row_removed_by_typed_code(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["delkey"] = {
+            "edited_rows": {},
+            "added_rows": [],
+            "deleted_rows": [1],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["UGCP1001", "UGCP2002"], "CUHKSZ": ["", ""], "Credits": [3, 3], "Study Period": ["Y1S1", "Y2S2"]},
+        )
+        deletes: list = []
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
+        storage.college_ge_on_change("delkey", df)
+        assert deletes == [("UGCP2002", "college_ge")]  # row 1's CUHK cell, own table

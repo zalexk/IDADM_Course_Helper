@@ -1,5 +1,5 @@
 import streamlit as st
-from app import constant, ucore, login
+from app import constant, ucore, ida, major_2, planner, login
 import src.data_retrieval as data
 
 
@@ -21,10 +21,18 @@ if __name__ == "__main__":
         "https://alex-zsk.notion.site/userguide"
     )
     
-    if "login_status" not in st.session_state or st.session_state["login_status"] is False:
+    is_guest = "login_status" not in st.session_state or st.session_state["login_status"] is False
+    if is_guest:
+        st.warning(
+            "Please log in (sidebar) to save and view your study plan."
+            "Any selections made before logging in will be discarded on login. "
+            "You cannot use Planner Function before logging in.",
+            icon="🔒",
+        )
+        if login.has_guest_edits() and not st.session_state.get("guest_notice_shown"):
+            login.guest_edits_notice()
         with st.sidebar:
             login.ui()
-        
     major_2nd = st.selectbox(
         "2nd Major",
         constant.MAJOR_2nd_list,
@@ -48,7 +56,23 @@ if __name__ == "__main__":
         st.caption("** This is unofficial. Please be aware that there may be mistakes.")
         st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY")
         
-        ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(["University Core", "Interdisciplinary Data Analytics", major_2nd, "Planner"])
+        ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(
+            [
+                "University Core", 
+                "Interdisciplinary Data Analytics", 
+                major_2nd, 
+                "Planner"
+            ]
+        )
         
         with ucore_tab:
             ucore.ui(context)
+
+        with major_1_tab:
+            ida.ui(context, major_2nd)
+
+        with major_2_tab:
+            major_2.ui(context, major_2nd)
+
+        with planner_tab:
+            planner.ui(context, major_2nd)

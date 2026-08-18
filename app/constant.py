@@ -33,3 +33,29 @@ STUDY_CAMPUS = {
     "Year 4 Sem 2": "CUHK"
 }
 
+GRADUATION_REQUIREMENT : dict = {
+    "University Core": {
+        "Chinese Language": 5,
+        "English Language": 8,
+        "GE: Foundation Courses": 6,
+        "GE: Four Areas (Area A, C, D)": 7,
+        "College GE": 6,
+        "Understanding China": 1,
+        "Hong Kong in the Wider Constitutional Order": 1,
+        "Digital Literacy and Computational Thinking": 3,
+        "Physical Education": 2,
+    },
+    "1st Major": {
+        "Faculty Package": 9,
+        "Required Courses": 18,
+        "COOP": 3,
+        "Elective": 27,
+        "Elective Group A": 6,
+        "Elective Group B": 12,
+        "Elective (3000+)": 12,
+        "Elective (4000)": 6,
+    },
+    "Research Component": 3,
+    "Total Credit": 129,
+}
+
