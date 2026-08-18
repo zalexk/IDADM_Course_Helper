@@ -1,0 +1,11 @@
+services:
+  idadm:
+    build: .
+    # 註：不要寫 image: idadm:latest，否則 1Panel 編排會先嘗試 docker pull 該鏡像而失敗
+    container_name: idadm
+    ports:
+      - "8501:8501"
+    # 掛載 Supabase 密鑰（檔案留在伺服器上，不進鏡像）
+    volumes:
+      - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    restart: unless-stopped

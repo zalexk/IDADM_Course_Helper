@@ -1,0 +1,22 @@
+# 版本控制與本機快取
+.git
+.gitignore
+__pycache__
+*.pyc
+.venv
+.uv
+
+# 敏感資訊 —— 絕不進入鏡像
+.streamlit/secrets.toml
+
+# 非執行期檔案
+tests
+docs
+plan
+todo.md
+README.md
+LICENSE
+AGENTS.md
+Dockerfile
+.dockerignore
+docker-compose.yml
