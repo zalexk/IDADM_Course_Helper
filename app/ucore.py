@@ -1,5 +1,5 @@
 import streamlit as st
-from src.data_retrieval import CourseDataContext, get_course_list, show_course_info, _course_key
+from src.data_retrieval import CourseDataContext, get_course_list, show_course_info, _course_key, determine_campus
 import pandas as pd
 from app.components import table_editor, study_period_col_config
 from src.storage import (
@@ -33,18 +33,38 @@ def _user_input_section(
     saved_count = len(saved)
     row_count = max(saved_count, default_rows)
     if saved:
-        cuhk   = [row["course_id"]   for row in saved] + [""] * (row_count - saved_count)
-        period = [row["study_period"] for row in saved] + [""] * (row_count - saved_count)
+        # Split recalled codes by campus: SZ codes go to the CUHKSZ column.
+        cuhk_cells, sz_cells, period, credits = [], [], [], []
+        for i, row in enumerate(saved):
+            cid = row["course_id"]
+            if i < row_count:
+                try:
+                    is_sz = determine_campus(cid) == "sz"
+                except Exception:
+                    is_sz = False
+                cuhk_cells.append("" if is_sz else cid)
+                sz_cells.append(cid if is_sz else "")
+                period.append(row["study_period"] or "")
+                try:
+                    credits.append(int(row["credits"]))
+                except (TypeError, ValueError, KeyError):
+                    credits.append(default_credits)
+        pad = row_count - saved_count
+        cuhk_cells += [""] * pad
+        sz_cells += [""] * pad
+        period += [""] * pad
+        credits += [default_credits] * pad
     else:
-        cuhk   = [""] * row_count
+        cuhk_cells = [""] * row_count
+        sz_cells = [""] * row_count
         period = [""] * row_count
-    n = row_count
+        credits = [default_credits] * row_count
 
     course_table = pd.DataFrame(
         {
-            "CUHK": cuhk,
-            "CUHKSZ": [""] * n,
-            "Credits": [default_credits] * n,
+            "CUHK": cuhk_cells,
+            "CUHKSZ": sz_cells,
+            "Credits": credits,
             "Study Period": period,
         },
     )
@@ -81,7 +101,7 @@ def ui(context : CourseDataContext):
 
     _user_input_section(
         "Physical Education", "ucore-pe", pe_on_change,
-        table_name="pe", default_rows=1, default_credits=1, dynamic=False,
+        table_name="pe", default_rows=1, default_credits=1, dynamic=True,
     )
     _user_input_section(
         "College GE", "ucore-college-ge", college_ge_on_change,

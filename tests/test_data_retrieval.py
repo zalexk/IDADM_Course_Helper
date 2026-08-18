@@ -320,8 +320,25 @@ class TestUserInputOnChange:
         data, tbl = upserts[0]
         assert data["course_id"] == "PHED1001"          # typed code, not an index label
         assert data["study_period"] == "Year 1 Sem 1"
+        assert data["credits"] == 1                     # user-typed credits persisted
         assert data["id"] == "test-user"
         assert tbl == "pe"                              # routed to the PE table
+
+    def test_edited_credits_change_persisted(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["pekey3"] = {
+            "edited_rows": {"0": {"Credits": 2}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["PHED1001"], "CUHKSZ": [""], "Credits": [1], "Study Period": ["Y1S1"]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("pekey3", df)
+        assert upserts[0][0]["credits"] == 2            # changed cell wins over base
 
     def test_empty_course_id_skipped(self, monkeypatch):
         import src.storage as storage
@@ -397,6 +414,7 @@ class TestUserInputDynamic:
         storage.college_ge_on_change("addkey", df)
         assert len(upserts) == 1
         assert upserts[0][0]["course_id"] == "UGCP2002"
+        assert upserts[0][0]["credits"] == 3            # added-row credits persisted
         assert upserts[0][0]["study_period"] == "Year 2 Sem 2"
 
     def test_added_row_without_course_id_skipped(self, monkeypatch):
@@ -430,3 +448,59 @@ class TestUserInputDynamic:
         monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
         storage.college_ge_on_change("delkey", df)
         assert deletes == [("UGCP2002", "college_ge")]  # row 1's CUHK cell, own table
+
+
+class TestUserInputPartialSave:
+    """Any cell edit persists; empty study_period stored as None, one row's
+    failure never blocks the others."""
+
+    def test_empty_period_saved_as_none(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["fapart"] = {
+            "edited_rows": {"0": {"CUHK": "UGFN1001"}},  # code typed, no period yet
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.four_area_on_change("fapart", df)
+        assert len(upserts) == 1
+        data, tbl = upserts[0]
+        assert data["course_id"] == "UGFN1001"
+        assert data["study_period"] is None   # empty → NULL passes DB CHECK
+        assert data["credits"] == 3           # default credits from the table
+        assert tbl == "four_area_ge"
+
+    def test_row_failure_does_not_block_others(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["fabatch"] = {
+            "edited_rows": {
+                "0": {"CUHK": "UGFN1001", "Study Period": "Year 1 Sem 1"},
+                "1": {"CUHK": "UGGA1001", "Study Period": "Year 2 Sem 1"},
+            },
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["", ""], "CUHKSZ": ["", ""], "Credits": [3, 3], "Study Period": ["", ""]},
+        )
+
+        calls = {"n": 0}
+        def flaky_upsert(uid, d, **k):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("simulated DB failure")  # first row fails
+            upserts.append((d, k.get("table_name")))
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", flaky_upsert)
+        errors: list = []
+        monkeypatch.setattr("streamlit.error", lambda *a, **k: errors.append(a[0] if a else ""))
+        storage.four_area_on_change("fabatch", df)
+        assert len(upserts) == 1                     # second row still saved
+        assert upserts[0][0]["course_id"] == "UGGA1001"
+        assert errors and "UGFN1001" in errors[0]    # failure surfaced for row 1

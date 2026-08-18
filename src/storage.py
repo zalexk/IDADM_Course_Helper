@@ -74,35 +74,58 @@ def user_input_on_change(
     added   = edit_state.get("added_rows", [])    # [{column: value, ...}]
     deleted = edit_state.get("deleted_rows", [])  # [row_index, ...]
 
+    def _clean_credits(value) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
     try:
         # 1) Modified cells: course_id is the "CUHK" cell (user-typed).
+        #    Empty study_period is stored as None (DB CHECK passes NULL) so
+        #    partially-filled rows persist instead of being rejected.
         for index, changes in edited.items():
             base = df.iloc[int(index)]
-            course_id = changes.get("CUHK", base["CUHK"])
+            # Identity: whichever campus column carries a code (CUHK preferred).
+            course_id = (changes.get("CUHK", base["CUHK"])
+                         or changes.get("CUHKSZ", base["CUHKSZ"]))
             if not course_id:
-                continue # nothing to store yet
-            upsert_data(user_id, {
-                "id": user_id,
-                "course_id": course_id,
-                "study_period": changes.get("Study Period", base["Study Period"]),
-            }, table_name=table_name)
+                continue # no identity yet — nothing to store
+            study_period = changes.get("Study Period", base["Study Period"]) or None
+            try:
+                upsert_data(user_id, {
+                    "id": user_id,
+                    "course_id": course_id,
+                    "credits": _clean_credits(changes.get("Credits", base["Credits"])),
+                    "study_period": study_period,
+                }, table_name=table_name)
+            except Exception:
+                st.error(f"Failed to save {course_id}, please try again.")
 
-        # 2) Added rows: complete records; course_id is the typed "CUHK" value.
+        # 2) Added rows: complete records; identity from either campus column.
         for row in added:
-            course_id = row.get("CUHK", "")
+            course_id = row.get("CUHK", "") or row.get("CUHKSZ", "")
             if not course_id:
                 continue
-            upsert_data(user_id, {
-                "id": user_id,
-                "course_id": course_id,
-                "study_period": row.get("Study Period", ""),
-            }, table_name=table_name)
+            try:
+                upsert_data(user_id, {
+                    "id": user_id,
+                    "course_id": course_id,
+                    "credits": _clean_credits(row.get("Credits")),
+                    "study_period": row.get("Study Period") or None,
+                }, table_name=table_name)
+            except Exception:
+                st.error(f"Failed to save {course_id}, please try again.")
 
-        # 3) Deleted rows: remove by the original row's "CUHK" cell.
+        # 3) Deleted rows: remove by the original row's campus cell.
         for index in deleted:
-            course_id = df.iloc[int(index)]["CUHK"]
+            base = df.iloc[int(index)]
+            course_id = base["CUHK"] or base["CUHKSZ"]
             if course_id:
-                delete_data(user_id, course_id, table_name=table_name)
+                try:
+                    delete_data(user_id, course_id, table_name=table_name)
+                except Exception:
+                    st.error(f"Failed to delete {course_id}, please try again.")
 
     except Exception:
         st.error("Failed to save changes, please try again.")

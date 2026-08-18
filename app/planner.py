@@ -13,9 +13,11 @@ from src.data_retrieval import (
     get_course_list,
     get_course_info,
     get_major_2_requirement,
-    _course_key,
+    convert_course_id,
+    determine_campus,
     determine_level,
     InfoMissingError,
+    _course_key,
 )
 from src.storage import fetch_all_planned
 from src.pdf_generator import generate_study_plan_pdf
@@ -33,6 +35,34 @@ def _credits(context : CourseDataContext, course_id : str) -> int:
         return int(get_course_info(context, course_id)[1])
     except (InfoMissingError, ValueError, IndexError):
         return 0
+
+
+def _row_credits(row : dict) -> int:
+    """Credit units from a saved row: the user-typed value (input tables) or 0."""
+    try:
+        return int(row.get("credits"))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
+    """Course id as offered at `campus` ('CUHK'/'CUHKSZ'); original if no equivalent.
+
+    The stored id is the canonical key (usually HK). Equivalence is per-major;
+    try each major's bidict and take the first conversion that lands on the
+    target campus.
+    """
+    target = "hk" if campus == "CUHK" else "sz"
+    if determine_campus(cid) == target:
+        return cid
+    for major in context.equivalence_bidicts:
+        try:
+            converted = convert_course_id(context, major, cid)
+            if determine_campus(converted) == target:
+                return converted
+        except InfoMissingError:
+            continue
+    return cid # no equivalent at that campus: keep the original id
 
 
 def _check_credit_limit(year : int, sem : int, total_credit : int) -> None:
@@ -56,19 +86,32 @@ def _check_credit_limit(year : int, sem : int, total_credit : int) -> None:
 
 
 def _build_course_table(context : CourseDataContext, all_rows : list[dict]) -> pd.DataFrame:
-    """Build a unified DataFrame from all saved rows across all tables."""
+    """Build a unified DataFrame from all saved rows across all tables.
+
+    Display id/title: each course is shown as offered at the campus of its
+    study period (STUDY_CAMPUS), converted via equivalence when possible.
+    Credits: input-table rows (pe/college_ge/four_area_ge) use the DB-stored
+    user-typed value; catalogue rows (study_plan, no credits column) use the
+    catalogue credit.
+    """
+    INPUT_SOURCES = {"pe", "college_ge", "four_area_ge"}
     records = []
     for row in all_rows:
         cid = row["course_id"]
-        sp = row["study_period"]
-        title, credits = "(unknown)", 0
+        sp = row["study_period"] or ""
+        campus = STUDY_CAMPUS.get(sp, "CUHK")
+        display_id = _campus_code(context, cid, campus)
+        title = ""
         try:
-            info = get_course_info(context, cid)
-            title, credits = info[0], int(info[1])
+            title = get_course_info(context, display_id)[0]
         except (InfoMissingError, ValueError, IndexError):
             pass
+        if row.get("source") in INPUT_SOURCES:
+            credits = _row_credits(row)
+        else:
+            credits = _credits(context, cid)
         records.append({
-            "Course": f"{cid} {title}",
+            "Course": f"{display_id} {title}".strip(),
             "Credits": credits,
             "Study Period": sp,
         })
@@ -151,10 +194,10 @@ def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[s
     status["Hong Kong in the Wider Constitutional Order"] = "UGCP1002" in planned_ucore
     status["Digital Literacy and Computational Thinking"] = "ENGG1003" in planned_ucore
 
-    # Credit-based from user-input tables
-    pe_credits = sum(_credits(context, r["course_id"]) for r in all_rows if r.get("source") == "pe")
-    college_ge_credits = sum(_credits(context, r["course_id"]) for r in all_rows if r.get("source") == "college_ge")
-    four_area_credits = sum(_credits(context, r["course_id"]) for r in all_rows if r.get("source") == "four_area_ge")
+    # Credit-based from user-input tables (credits = user-typed value in DB)
+    pe_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "pe")
+    college_ge_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "college_ge")
+    four_area_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "four_area_ge")
 
     status["Physical Education"] = pe_credits >= req["Physical Education"]
     status["College GE"] = college_ge_credits >= req["College GE"]
@@ -258,7 +301,11 @@ def _requirement_view(
     st.header("Graduation Requirements")
 
     planned_ids = {r["course_id"] for r in all_rows}
-    total_credits = sum(_credits(context, r["course_id"]) for r in all_rows)
+    total_credits = sum(
+        _row_credits(r) if r.get("source") in {"pe", "college_ge", "four_area_ge"}
+        else _credits(context, r["course_id"])
+        for r in all_rows
+    )
 
     ucore_status = _compute_ucore(context, all_rows)
     major1_status = _compute_major_1(context, planned_ids, major_2)
