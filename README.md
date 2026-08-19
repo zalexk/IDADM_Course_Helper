@@ -81,8 +81,8 @@ uv run streamlit run main.py
   SUPABASE_KEY = "eyJxxxx"
   ```
 
-  > [!CAUTION]
-  > 此文件包含敏感憑證，**請勿提交到 Git**（`.dockerignore` 已將其排除，不會被打入鏡像）。部署時以 volume 掛載方式載入。
+> [!CAUTION]
+> 此文件包含敏感憑證，**請勿提交到 Git**（`.dockerignore` 已將其排除，不會被打入鏡像）。部署時以 volume 掛載方式載入。
 
 ### 部署步驟
 
