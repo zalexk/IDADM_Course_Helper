@@ -31,6 +31,8 @@
 ### 🌟 主要特性
 - 支持規劃大學必修課程 (University Core)
 - 支持規劃 IDADM 課程兩個主修 (Major) 的必修課 (Faculty Package, Required Courses) 和選修課 (Electives)
+- 支持從成績單截圖 / PDF **批量導入**已修課程（需配置 LLM API Key）
+- 新增**中英文語文要求**（Chinese Language / English Language）課程清單，並在 Planner 自動核算達成情況
 - 支持計算是否達成課程畢業學分 (Credits) 要求
 - 支持計算是否超出學校修讀學分 (Credits) 限制
 - 支持導出為 PDF 格式和 Word 格式
@@ -59,12 +61,21 @@ uv run streamlit run main.py
 ```
 
 > [!IMPORTANT]
-> 應用需要 Supabase 憑證才能啟動。請在本地建立 `.streamlit/secrets.toml` 並填入：
+> 應用需要 Supabase 憑證才能啟動。請在本地建立 `.streamlit/secrets.toml` 並填入（本倉庫已附 `.streamlit/secrets.example` 範本，複製後填入即可：`cp .streamlit/secrets.example .streamlit/secrets.toml`）：
 > ```toml
 > SUPABASE_URL = "https://xxxx.supabase.co"
 > SUPABASE_KEY = "eyJxxxx"
 > ```
 > 該文件已列入 `.gitignore`，請勿提交。
+
+> [!NOTE]
+> 若想使用**課程導入**（v1.1）功能，需額外配置視覺語言模型的憑證（OpenAI 兼容端點）：
+> ```toml
+> LLM_API_KEY = "sk-xxxx"                       # 課程導入功能所需，必填
+> LLM_BASE_URL = "https://your-endpoint/v1"     # 可選，自託管 / 代理端點
+> COURSE_IMPORT_MODEL = "gemini-3.5-flash-lite" # 可選，預設模型
+> ```
+> 未配置 `LLM_API_KEY` 時，匯入功能會提示金鑰缺失而不影響其他功能。
 
 
 ## Docker 部署
@@ -74,11 +85,14 @@ uv run streamlit run main.py
 ### 前置準備
 
 - 伺服器已安裝 Docker 與 Docker Compose v2。
-- 準備 Supabase 密鑰文件 `.streamlit/secrets.toml`：
+- 準備 Supabase 密鑰文件 `.streamlit/secrets.toml`（本倉庫已附 `.streamlit/secrets.example` 範本，複製後填入即可：`cp .streamlit/secrets.example .streamlit/secrets.toml`）：
 
   ```toml
   SUPABASE_URL = "https://xxxx.supabase.co"
   SUPABASE_KEY = "eyJxxxx"
+  LLM_API_KEY = "sk-xxxx"                       # 課程導入功能所需，必填
+  LLM_BASE_URL = "https://your-endpoint/v1"     # 可選，自託管 / 代理端點
+  COURSE_IMPORT_MODEL = "gemini-3.5-flash-lite" # 可選，預設模型
   ```
 
 > [!CAUTION]

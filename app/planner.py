@@ -512,7 +512,7 @@ def _import_courses(context : CourseDataContext, user_id : str, major_2 : str) -
             key="course-import-editor",
         )
 
-        if st.button("Confirm import 确认导入"):
+        if st.button("Confirm import"):
             count = write_confirmed(context, user_id, edited)
             del st.session_state["course-import-preview"]
             st.session_state["course-imported"] = count

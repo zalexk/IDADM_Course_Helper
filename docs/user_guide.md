@@ -38,6 +38,10 @@
 >
 > 必須先選擇第二主修 (2nd Major)，後續的課程規劃選項卡才會顯示。
 
+> [!TIP]
+>
+> 想了解本工具最近的更新？主介面右下角的 **"Read what's new `v1.1`"** 摺疊區會列出各版本新功能（v1.1：支援課程導入、新增中英文語文課程；v1.0：支援登入儲存）。
+
 ## 2. 課程規劃流程
 
 應用界面分為四個主要標籤頁 (Tab)，建議按以下順序進行規劃：
@@ -47,6 +51,8 @@
 
 - **大學必修課目錄表**：系統已列出大學必修課程（如大學通識基礎課 UGFN1000 / UGFH1000、認識中國 UGCP1001、香港特區的憲制秩序 UGCP1002、數碼素養及計算思維 ENGG1003 等），你只需為每門課設定修讀學期。
 - **手動輸入區**：**體育 (Physical Education)**、**書院通識 (College GE)** 和**四範圍通識 (Four Area of GE)** 因課程繁多、難以列舉，需要自行填寫課程編號、學分 (Credits) 和修讀學期。
+- **中文 (Chinese Language) 目錄表**：系統已列出中文課程（如 CHLT1001 / CHLT1002 / CHLT1303 / CHLT1308），你可增刪課程並為每門課設定修讀學期。
+- **英文 (English Language) 目錄表**：系統會根據你選擇的**第二主修所屬學院**（工學院 Faculty of Engineering / 商學院 Faculty of Business Administration / 理學院 Faculty of Science），列出該學院合資格的英文課程（ELTU* 或對應的 ENG* 碼），你只需為每門課設定修讀學期。
 - 在 **"Study Period"** 列中，為每門課選擇你打算修讀的學期 (Semester)（例如：`Year 1 Sem 1`）。
 
 > [!Note]
@@ -95,6 +101,23 @@
 >
 > **Planner 功能需要登入後才能使用**，未登入時該標籤頁只會提示你先登入。
 
+### 批量導入已修課程 (Import Courses)
+在 **"Planner"** 標籤頁 (Tab) 頂部，點擊 **"📥 Import Courses (導入已讀課程)"** 展開區：
+
+- **上傳檔案**：建議上傳 CUSIS 中 *Academic Records* 的截圖（PNG / JPG / JPEG / WEBP）或 PDF。
+- **預覽與編輯**：確認前請檢查預覽表格：
+  - **Course ID**：可編輯，修正任何誤辨識的課程代碼。
+  - **Recognized**：✓ 表示代碼已對應課程目錄；未對應（⚠）的課程僅在類別為大學必修輸入區（PE / College GE / Four Areas / English）時才會匯入，否則會被略過、需手動補錄。
+  - **Existing Period**：你計劃中已儲存的學期（唯讀）；確認後將以 **Study Period** 覆寫。
+  - **Study Period**：確認後將儲存的學期。
+  - **Credits**：來自成績單的學分，僅對大學必修輸入區（PE / College GE / Four Areas）生效；其他類別一律使用課程目錄學分。
+  - **Category**：該課程歸屬的要求類別，若系統建議錯誤可用下拉選單調整。
+- **確認匯入**：點擊 `Confirm import 確認匯入`，課程將寫入對應的雲端資料表並顯示匯入數量。
+
+> [!IMPORTANT]
+>
+> 課程導入功能需要應用配置 LLM API Key（`.streamlit/secrets.toml` 中的 `LLM_API_KEY`，可選 `LLM_BASE_URL` 與 `COURSE_IMPORT_MODEL`），否則會提示金鑰缺失。匯入僅適用於已登入帳戶，訪客模式不會儲存。
+
 ### 學期視圖 (Year 1 - Year 4)
 - **實時學分 (Credits) 計算**：查看每個學期 (Semester) 已選課程的總學分。
 - 每個學年分為 **Sem 1 / Sem 2** 兩個子視圖，並顯示對應的修讀校區（例如 `Sem 1 (CUHK)`）。
@@ -113,7 +136,7 @@
 
 > [!IMPORTANT]
 >
-> Ucore 科目目前無法由系統自動核對，會一直顯示為未完成，請自行對照官方要求判斷。
+> **中文 (Chinese Language) 與英文 (English Language) 語文要求現已可由系統根據課程清單學分自動核算**，無須再自行判斷。其餘大學必修 (University Core) 類別仍請自行對照官方要求判斷。
 
 > [!IMPORTANT]
 >

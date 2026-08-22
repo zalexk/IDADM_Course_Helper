@@ -2,12 +2,11 @@
 image/PDF into the study plan.
 
 Pipeline (each arrow is an offline-testable seam):
+
     file bytes --render_pages--> PNG page images
                --extract_courses (OpenAI-compatible vision LLM)--> raw rows
                --build_preview_rows--> preview DataFrame (user fixes terms)
-               --write_confirmed--> Supabase tables, one per requirement
-                                     category (study_plan / pe / college_ge /
-                                     four_area_ge / english)
+               --write_confirmed--> existing Supabase `study_plan` table
 
 Config is read lazily from st.secrets at call time (never at import), so a
 missing OPENAI_API_KEY surfaces as one caught CourseImportError in the UI
@@ -541,11 +540,6 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
         elif table == "study_plan" and not _in_catalogue(context, cid):
             skipped.append(cid)
             continue # unknown id: left for manual entry on the tabs
-        if table in _INPUT_TABLES:
-            payload["course_id"] = _input_table_course_id(cid, row.get("Course"))
-            payload["credits"] = _clean_credits(
-                row.get("Credits"), _INPUT_TABLE_CREDIT_DEFAULTS[table],
-            )
         try:
             upsert_data(user_id, payload, table_name=table)
         except Exception:
