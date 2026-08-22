@@ -16,12 +16,15 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import pandas as pd
 
 from app.constant import STUDY_CAMPUS
+from src.pdf_generator import _format_now
 
 
-def generate_study_plan_docx(study_plan_df: pd.DataFrame, major_2_name: str) -> BytesIO:
+def generate_study_plan_docx(study_plan_df : pd.DataFrame, major_2_name : str, *, user_tz : str | None = None) -> BytesIO:
     """Generate a Word document from the unified study-plan DataFrame.
 
     Expected columns: Course, Credits, Study Period.
+    `user_tz` is an IANA timezone name (e.g. "Asia/Hong_Kong") forwarded from
+    `st.context.timezone`; UTC is used when the caller doesn't supply one.
     """
     doc = Document()
 
@@ -36,7 +39,7 @@ def generate_study_plan_docx(study_plan_df: pd.DataFrame, major_2_name: str) -> 
 
     # Generation Date
     p = doc.add_paragraph()
-    p.add_run(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    p.add_run(f"Generated on: {_format_now(user_tz)}")
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
     for year in range(1, 5):

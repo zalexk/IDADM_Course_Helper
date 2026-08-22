@@ -11,6 +11,7 @@ from src.data_retrieval import (
     get_course_info,
     get_course_list,
     get_equivalence_courses,
+    get_english_course_list,
     get_major_2_requirement,
     get_course_id_list,
     convert_course_id,
@@ -288,6 +289,99 @@ class TestDataOnChange:
         assert deletes == ["DOTE1030"]  # index label, not the display label
 
 
+class TestChineseLanguageCatalogue:
+    """Chinese Language is a fixed catalogue section of University Core
+    (major_course_list.json): identity = canonical index label, persistence
+    rides the shared study_plan table — there is no dedicated 'chinese' table.
+    """
+
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
+
+    def test_catalogue_courses_exist_with_credits(self, context):
+        courses = get_course_list(context, "University Core")["Chinese Language"]
+        assert courses
+        for cid in courses:
+            assert determine_campus(cid) == "hk"      # CHLT* are HK ids
+            title, credits = get_course_info(context, cid)
+            assert title and int(credits) > 0         # present in course_list.csv
+
+    def test_keys_are_canonical_self(self, context):
+        courses = get_course_list(context, "University Core")["Chinese Language"]
+        assert all(_course_key(context, "University Core", c) == c for c in courses)
+
+    def test_edit_persists_to_study_plan(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["ucore-chinese"] = {
+            "edited_rows": {"0": {"Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["CHLT1001 University Chinese I"], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+            index=["CHLT1001"],
+        )
+        upserts: list[tuple] = []
+        monkeypatch.setattr(
+            storage, "upsert_data",
+            lambda uid, d, **k: upserts.append((d, k.get("table_name"))),
+        )
+        storage.data_on_change("ucore-chinese", df)
+        assert len(upserts) == 1
+        payload, table = upserts[0]
+        assert table in (None, "study_plan")          # default table, not a 'chinese' table
+        assert payload["course_id"] == "CHLT1001"     # index label wins over display text
+
+    def test_dynamic_added_row_uses_first_token(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["ucore-chinese"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "CHLT2001 Extra Chinese", "Study Period": "Year 2 Sem 2"}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["CHLT1001 University Chinese I"], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+            index=["CHLT1001"],
+        )
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("ucore-chinese", df)
+        assert len(upserts) == 1
+        assert upserts[0]["course_id"] == "CHLT2001"  # code token, not full display text
+        assert upserts[0]["study_period"] == "Year 2 Sem 2"
+
+    def test_dynamic_added_row_without_code_skipped(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["ucore-chinese"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "", "CUHKSZ": "", "Credits": 3, "Study Period": ""}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["CHLT1001 University Chinese I"], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+            index=["CHLT1001"],
+        )
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("ucore-chinese", df)
+        assert upserts == []
+
+    def test_fetch_all_planned_has_no_chinese_source(self, monkeypatch):
+        import src.storage as storage
+        monkeypatch.setattr(
+            storage, "fetch_data",
+            lambda user_id, table_name="study_plan":
+                [{"id": user_id, "course_id": f"{table_name}-x", "study_period": None}],
+        )
+        rows = storage.fetch_all_planned("u")
+        assert "chinese" not in {r["source"] for r in rows}
+        assert "chinese" not in {r["course_id"] for r in rows}
+
+
 class TestUserInputOnChange:
     """user_input_on_change + per-section wrappers: identity = typed CUHK cell,
     routed to a section-specific DB table."""
@@ -504,3 +598,152 @@ class TestUserInputPartialSave:
         assert len(upserts) == 1                     # second row still saved
         assert upserts[0][0]["course_id"] == "UGGA1001"
         assert errors and "UGFN1001" in errors[0]    # failure surfaced for row 1
+
+
+class TestEnglishCourseList:
+    """get_english_course_list: faculty-specific English catalogue merge
+    (pairs come verbatim from english_lang_course_list.json)."""
+
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
+
+    def test_every_second_major_has_faculty_mapping(self):
+        from app.constant import ENGLISH_FACULTY, MAJOR_2nd_list
+        assert set(ENGLISH_FACULTY) == set(MAJOR_2nd_list)
+
+    def test_mapped_faculties_exist_in_data(self):
+        from app.constant import ENGLISH_FACULTY
+        context = load_all_data()
+        for faculties in ENGLISH_FACULTY.values():
+            for faculty in faculties:
+                assert faculty in context.english_lang_courses
+
+    def test_single_faculty_returns_its_entries(self, context):
+        assert get_english_course_list(context, ("Engineering",)) \
+            == context.english_lang_courses["Engineering"]
+
+    def test_entry_shapes_and_campuses(self, context):
+        for entries in context.english_lang_courses.values():
+            for entry in entries:
+                if isinstance(entry, list):
+                    assert len(entry) == 2
+                    assert determine_campus(entry[0]) == "hk"
+                    assert determine_campus(entry[1]) == "sz"
+                else:
+                    assert determine_campus(entry) == "hk"
+
+    def test_merge_dedups_by_hk_code_without_dropping(self, context):
+        merged = get_english_course_list(
+            context, ("Business", "Engineering", "Science"),
+        )
+        hk_codes = [e[0] if isinstance(e, list) else e for e in merged]
+        raw = [
+            e[0] if isinstance(e, list) else e
+            for f in ("Business", "Engineering", "Science")
+            for e in context.english_lang_courses[f]
+        ]
+        assert len(hk_codes) == len(set(hk_codes))  # duplicates collapsed
+        assert set(hk_codes) == set(raw)            # nothing dropped
+        # first occurrence wins: ELTU2005 pairs identically in every list
+        entry = next(e for e in merged if (e[0] if isinstance(e, list) else e) == "ELTU2005")
+        assert entry == ["ELTU2005", "ENG2001"]
+
+    def test_unknown_faculty_raises(self, context):
+        with pytest.raises(InfoMissingError):
+            get_english_course_list(context, ("Law",))
+
+    def test_every_english_course_in_catalogue(self, context):
+        """Titles/credits for the fixed table come from course_list.csv."""
+        for entries in context.english_lang_courses.values():
+            for entry in entries:
+                for cid in (entry if isinstance(entry, list) else [entry]):
+                    assert len(get_course_info(context, cid)) == 2
+
+
+class TestEnglishOnChange:
+    """english_on_change: catalogue identity = index label (HK code), own
+    'english' table, empty Study Period stored as None, no credits persisted."""
+
+    @staticmethod
+    def _catalogue_df() -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "CUHK": ["ELTU1001 Foundation English for University Studies",
+                         "ELTU3014 English for Engineering Students II"],
+                "CUHKSZ": ["ENG1002 English for Academic Purposes I", ""],
+                "Credits": [3, 2],
+                "Study Period": ["", ""],
+            },
+            index=pd.Index(["ELTU1001", "ELTU3014"]),
+        )
+
+    def test_edited_row_uses_index_identity(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["enkey"] = {
+            "edited_rows": {"0": {"Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.english_on_change("enkey", self._catalogue_df())
+        assert len(upserts) == 1
+        data, tbl = upserts[0]
+        assert data["course_id"] == "ELTU1001"          # index label, not display text
+        assert data["study_period"] == "Year 1 Sem 1"
+        assert "credits" not in data                    # credits come from the catalogue
+        assert data["id"] == "test-user"
+        assert tbl == "english"                         # routed to the section's table
+
+    def test_empty_period_stored_as_none(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["enkey2"] = {
+            "edited_rows": {"1": {"Study Period": ""}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.english_on_change("enkey2", self._catalogue_df())
+        assert upserts[0][0]["course_id"] == "ELTU3014"
+        assert upserts[0][0]["study_period"] is None    # empty → NULL passes DB CHECK
+
+    def test_guest_skips_write(self, monkeypatch):
+        import src.storage as storage
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.english_on_change("anykey", self._catalogue_df())  # no user_id
+        assert upserts == []
+
+    def test_range_index_rejected(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["enkey3"] = {
+            "edited_rows": {"0": {"Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = self._catalogue_df().reset_index(drop=True)  # RangeIndex row numbers
+        upserts: list = []
+        errors: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr("streamlit.error", lambda *a, **k: errors.append(a[0] if a else ""))
+        storage.english_on_change("enkey3", df)
+        assert upserts == []                          # row numbers can't pose as course keys
+        assert errors
+
+    def test_deleted_row_removed_from_own_table(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["enkey4"] = {
+            "edited_rows": {},
+            "added_rows": [],
+            "deleted_rows": [0],
+        }
+        deletes: list = []
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
+        storage.english_on_change("enkey4", self._catalogue_df())
+        assert deletes == [("ELTU1001", "english")]

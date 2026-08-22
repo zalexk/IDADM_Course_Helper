@@ -16,6 +16,29 @@ MAJOR_LIST : tuple[str, ...] = (
 
 MAJOR_2nd_list = MAJOR_LIST[2:] 
 
+# Faculty whose English language requirement applies, per 2nd major.
+# Financial Engineering may fulfil ANY of the three faculties' requirements,
+# so its catalogue is the merge of all three lists.
+ENGLISH_FACULTY : dict[str, tuple[str, ...]] = {
+    "Information Engineering": ("Engineering",),
+    "Integrated BBA": ("Business",),
+    "Systems Engineering and Engineering Management": ("Engineering",),
+    "Mathematics": ("Science",),
+    "Statistics (CUHK)": ("Science",),
+    "Financial Engineering": ("Business", "Engineering", "Science"),
+    "Marketing and Communication": ("Business",),
+    "Computer Science and Engineering": ("Engineering",),
+    "Electrical and Computer Engineering": ("Engineering",),
+    "Mathematics and Applied Mathematics": ("Science",),
+    "Statistics (CUHK(SZ))": ("Science",),
+}
+
+FACULTY_NAMES : dict[str, str] = {
+    "Business": "Faculty of Business Administration",
+    "Engineering": "Faculty of Engineering",
+    "Science": "Faculty of Science",
+}
+
 STUDY_CAMPUS = {
     "Year 1 Sem 1": "CUHK",
     "Year 1 Sem 2": "CUHKSZ",

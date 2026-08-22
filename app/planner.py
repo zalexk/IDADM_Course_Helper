@@ -23,6 +23,17 @@ from src.storage import fetch_all_planned
 from src.pdf_generator import generate_study_plan_pdf
 from src.word_generator import generate_study_plan_docx
 from app.constant import STUDY_CAMPUS, GRADUATION_REQUIREMENT
+from src.course_import import (
+    IMPORT_CATEGORIES,
+    MAX_PAGES,
+    SUPPORTED_TYPES,
+    CourseImportError,
+    build_preview_rows,
+    extract_courses_from_secrets,
+    render_pages,
+    write_confirmed,
+)
+from app.components import study_period_col_config
 
 _IDA = "Interdisciplinary Data Analytics"
 
@@ -198,14 +209,29 @@ def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[s
     pe_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "pe")
     college_ge_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "college_ge")
     four_area_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "four_area_ge")
+    # Chinese Language is a fixed catalogue section (identity = canonical HK
+    # key); count catalogue credits for its keys present in study_plan.
+    chinese_keys = {
+        _course_key(context, "University Core", c)
+        for c in get_course_list(context, "University Core")["Chinese Language"]
+    }
+    chinese_credits = sum(
+        _credits(context, r["course_id"]) for r in all_rows
+        if r.get("source") == "study_plan" and r["course_id"] in chinese_keys
+    )
+    # Catalogue credits (all ELTU/ENG codes are in course_list.csv); DB-stored
+    # credits are ignored - the fixed English table and course-import rows
+    # never persist a credits value.
+    english_credits = sum(
+        _credits(context, r["course_id"]) for r in all_rows
+        if r.get("source") == "english"
+    )
 
     status["Physical Education"] = pe_credits >= req["Physical Education"]
     status["College GE"] = college_ge_credits >= req["College GE"]
     status["GE: Four Areas (Area A, C, D)"] = four_area_credits >= req["GE: Four Areas (Area A, C, D)"]
-
-    # Not computable from current data (no specific course list for these)
-    status["Chinese Language"] = False
-    status["English Language"] = False
+    status["Chinese Language"] = chinese_credits >= req["Chinese Language"]
+    status["English Language"] = english_credits >= req["English Language"]
 
     return status
 
@@ -373,7 +399,7 @@ def _overall_view(all_courses : pd.DataFrame, major_2 : str) -> None:
 
     with col_pdf:
         try:
-            pdf_bytes = generate_study_plan_pdf(all_courses, major_2)
+            pdf_bytes = generate_study_plan_pdf(all_courses, major_2, user_tz=st.context.timezone)
             st.download_button(
                 label="Export as PDF",
                 data=pdf_bytes,
@@ -385,7 +411,7 @@ def _overall_view(all_courses : pd.DataFrame, major_2 : str) -> None:
 
     with col_word:
         try:
-            word_stream = generate_study_plan_docx(all_courses, major_2)
+            word_stream = generate_study_plan_docx(all_courses, major_2, user_tz=st.context.timezone)
             st.download_button(
                 label="Export as Word",
                 data=word_stream,
@@ -397,6 +423,109 @@ def _overall_view(all_courses : pd.DataFrame, major_2 : str) -> None:
 
     st.dataframe(all_courses, hide_index=True, height="content")
 
+# ---------- course import ----------
+
+def _import_courses(context : CourseDataContext, user_id : str, major_2 : str) -> None:
+    """Batch-import previously-taken courses from a transcript image/PDF.
+
+    Parse stores the preview in session state; the editor below has no
+    on_change - edits land in the returned DataFrame and are read at Confirm.
+    """
+    with st.expander("📥 Import Courses (導入已讀課程)"):
+        st.info("Recommend to use the screenshot of ***Academic Records*** from CUSIS")
+        imported : int | None = st.session_state.pop("course-imported", None)
+        if imported is not None:
+            st.success(f"Imported {imported} courses.")
+        uploaded = st.file_uploader(
+            "Screenshot or PDF",
+            type=list(SUPPORTED_TYPES),
+            max_upload_size = 5
+        )
+        if uploaded is None:
+            return
+        file_bytes = uploaded.getvalue()
+        if len(file_bytes) > 10 * 1024 * 1024:
+            st.error("File exceeds 10 MB, please upload a smaller file.")
+            return
+
+        if st.button("Import"):
+            try:
+                pages = render_pages(file_bytes, uploaded.name)
+                if len(pages) == MAX_PAGES and uploaded.name.casefold().endswith(".pdf") \
+                        and _pdf_page_count(file_bytes) > MAX_PAGES:
+                    st.warning(f"Only the first {MAX_PAGES} pages were parsed.")
+                llm_rows = extract_courses_from_secrets(pages)
+                st.session_state["course-import-preview"] = build_preview_rows(
+                    context, llm_rows, fetch_all_planned(user_id), major_2,
+                )
+            except CourseImportError as e:
+                st.error(f"Course import failed: {e}")
+
+        preview = st.session_state.get("course-import-preview")
+        if preview is None or preview.empty:
+            if preview is not None:
+                st.warning("No courses were recognized in this document.")
+            return
+
+        st.markdown(
+            "**Check before confirming**\n"
+            "- **Course ID** — editable: fix any misread code here.\n"
+            "- **Recognized** — ✓ means the code was found in the course "
+            "catalogue. Unrecognized rows (⚠) are only imported when their "
+            "category is a University Core input section "
+            "(PE / College GE / Four Areas / English); otherwise they are "
+            "skipped and must be added manually on that tab.\n"
+            "- **Existing Period** — the period already saved in your plan "
+            "for this course (read-only, blank = not planned yet). "
+            "Confirming overwrites it with the **Study Period** below.\n"
+            "- **Study Period** — the period that will be saved when you "
+            "confirm.\n"
+            "- **Credits** — credit units from your transcript. Only saved "
+            "for University Core input sections (PE / College GE / Four "
+            "Areas); other categories always use the catalogue credits.\n"
+            "- **Category** — the requirement section this course counts "
+            "towards; change it with the dropdown if the suggestion is wrong."
+        )
+
+        edited = st.data_editor(
+            preview,
+            hide_index=True,
+            height="content",
+            column_config={
+                **study_period_col_config,
+                "Credits": st.column_config.NumberColumn(
+                    "Credits",
+                    width="small",
+                    min_value=0,
+                    max_value=10,
+                    step="int", # type: ignore[return-value]
+                    help="Credit units from the transcript; saved only for "
+                         "PE / College GE / Four Areas entries.",
+                ),
+                "Category": st.column_config.SelectboxColumn(
+                    "Category",
+                    options=list(IMPORT_CATEGORIES),
+                    help="The requirement section this course counts towards.",
+                ),
+            },
+            disabled=["Course", "Recognized", "Existing Period"],
+            key="course-import-editor",
+        )
+
+        if st.button("Confirm import 确认导入"):
+            count = write_confirmed(context, user_id, edited)
+            del st.session_state["course-import-preview"]
+            st.session_state["course-imported"] = count
+            st.rerun()
+
+
+def _pdf_page_count(file_bytes : bytes) -> int:
+    """Page count for the truncation warning; 0 when unreadable."""
+    import pypdfium2 as pdfium
+    try:
+        return len(pdfium.PdfDocument(file_bytes))
+    except Exception:
+        return 0
 
 # ---------- entry point ----------
 
@@ -405,6 +534,7 @@ def ui(context : CourseDataContext, major_2 : str) -> None:
     if not user_id:
         st.info("Please log in to view your study plan.")
         return
+    _import_courses(context, user_id, major_2)
 
     all_rows = fetch_all_planned(user_id)
     all_courses = _build_course_table(context, all_rows)

@@ -1,12 +1,14 @@
 import streamlit as st
-from src.data_retrieval import CourseDataContext, get_course_list, show_course_info, _course_key, determine_campus
+from src.data_retrieval import CourseDataContext, get_course_list, get_course_info, get_english_course_list, show_course_info, _course_key, determine_campus, InfoMissingError
 import pandas as pd
 from app.components import table_editor, study_period_col_config
+from app.constant import ENGLISH_FACULTY, FACULTY_NAMES
 from src.storage import (
     data_on_change,
     pe_on_change,
     college_ge_on_change,
     four_area_on_change,
+    english_on_change,
     fetch_data,
 )
 
@@ -79,24 +81,106 @@ def _user_input_section(
     )
 
 
-def ui(context : CourseDataContext):
-    course_list = get_course_list(context, "University Core")["Required Courses"]
+def _code_title(context : CourseDataContext, cid : str) -> str:
+    """'CODE Title' cell value; the bare code when the catalogue lacks it."""
+    try:
+        return f"{cid} {get_course_info(context, cid)[0]}"
+    except (InfoMissingError, ValueError, IndexError):
+        return cid
+
+
+def _english_language_section(context : CourseDataContext, major_2 : str) -> None:
+    """English Language: fixed catalogue of faculty-specific eligible courses.
+
+    The 2nd major determines whose faculty's requirement applies; CUHK /
+    CUHKSZ pairs come straight from english_lang_course_list.json - the
+    equivalence_courses.csv machinery is deliberately NOT consulted. Identity
+    = index label (HK code); only Study Period is editable.
+    """
+    faculties = ENGLISH_FACULTY[major_2]
+    courses = get_english_course_list(context, faculties)
+
+    st.header("English Language")
+    st.caption(
+        "Fulfil the English language requirement of the "
+        + " / ".join(FACULTY_NAMES[f] for f in faculties)
+    )
+
+    user_id = st.session_state.get("user_id")
+    saved = (
+        {row["course_id"] : row["study_period"] for row in fetch_data(user_id, "english")}
+        if user_id else {}
+    )
+
+    cuhk, sz, credits, period, index = [], [], [], [], []
+    for entry in courses:
+        hk, szc = (entry, "") if isinstance(entry, str) else (entry[0], entry[1])
+        index.append(hk)
+        cuhk.append(_code_title(context, hk))
+        sz.append(_code_title(context, szc) if szc else "Unavailable")
+        credits.append(int(get_course_info(context, hk)[1]))
+        period.append(saved.get(hk) or saved.get(szc) or "")
 
     course_table = pd.DataFrame(
         {
-            "CUHK" : show_course_info(context, "University Core", course_list, "hk"),
-            "CUHKSZ" : show_course_info(context, "University Core", course_list, "sz"),
-            "Credits" : show_course_info(context, "University Core", course_list, "hk", "credits"),
-            "Study Period" : show_course_info(context, "University Core", course_list, "hk", "study_period")
+            "CUHK" : cuhk,
+            "CUHKSZ" : sz,
+            "Credits" : credits,
+            "Study Period" : period,
         },
-        index = pd.Index([_course_key(context, "University Core", c) for c in course_list])
+        index = pd.Index(index),
     )
     table_editor(
         course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
-        element_key = "ucore-compulsory",
+        element_key = "ucore-english",
+        col_config = study_period_col_config,
+        func = english_on_change,
+    )
+def _catalogue_section(
+    context : CourseDataContext,
+    major : str,
+    section : str,
+    element_key : str,
+    on_change_func,
+    title : str | None = None,
+    dynamic : bool = False,
+) -> None:
+    """Catalogue section: one row per course from
+    major_course_list.json[major][section]. Identity = the index label
+    (canonical HK key via _course_key); only Study Period is editable;
+    persistence goes to the shared study_plan table via data_on_change.
+    `dynamic` additionally allows add/delete rows — added rows carry their
+    identity in the typed "CUHK" cell (first token), not an index label.
+    """
+    courses = get_course_list(context, major)[section]
+    if title:
+        st.header(title)
+
+    course_table = pd.DataFrame(
+        {
+            "CUHK" : show_course_info(context, major, courses, "hk"),
+            "CUHKSZ" : show_course_info(context, major, courses, "sz"),
+            "Credits" : show_course_info(context, major, courses, "hk", "credits"),
+            "Study Period" : show_course_info(context, major, courses, "hk", "study_period")
+        },
+        index = pd.Index([_course_key(context, major, c) for c in courses])
+    )
+    table_editor(
+        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+        element_key = element_key,
         col_config = study_period_col_config,
         disabled_col = [],
-        func = data_on_change
+        func = on_change_func,
+        num_of_rows = "dynamic" if dynamic else "fixed",
+    )
+
+
+
+
+def ui(context : CourseDataContext, major_2 : str):
+    _catalogue_section(
+        context, "University Core", "Required Courses",
+        "ucore-compulsory", data_on_change,
     )
 
     _user_input_section(
@@ -111,3 +195,10 @@ def ui(context : CourseDataContext):
         "Four Area of GE", "ucore-four-area-ge", four_area_on_change,
         table_name="four_area_ge", default_rows=1, default_credits=3, dynamic=True,
     )
+    _catalogue_section(
+        context, "University Core", "Chinese Language",
+        "ucore-chinese", data_on_change,
+        title = "Chinese Language",
+        dynamic = True,
+    )
+    _english_language_section(context, major_2)

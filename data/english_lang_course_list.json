@@ -1,0 +1,62 @@
+{
+    "Engineering" : [
+        ["ELTU1001", "ENG1002"],
+        ["ELTU1002", "ENG1002"],
+        ["ELTU2005", "ENG2001"],
+        ["ELTU2014", "ENG2002S"],
+        ["ELTU2024", "ENG2002B/ENG2002S"],
+        "ELTU3014",
+        "ELTU3414",
+        "ELTU3415",
+        "ELTU3416",
+        "ELTU3502",
+        "ELTU3503",
+        "ELTU1005",
+        "ELTU2006",
+        "ELTU2007",
+        "ELTU2008",
+        "ELTU2412",
+        "ELTU3413"
+    ],
+
+    "Business" : [
+        ["ELTU1001", "ENG1002"],
+        ["ELTU1002", "ENG1002"],
+        ["ELTU2012", "ENG2002B"],
+        "ELTU3012",
+        "ELTU1005",
+        ["ELTU2005", "ENG2001"],
+        "ELTU2006",
+        ["ELTU2007", "ENG2001"],
+        "ELTU2008",
+        "ELTU2412",
+        "ELTU3024",
+        "ELTU3413",
+        "ELTU3414",
+        "ELTU3415",
+        "ELTU3416",
+        "ELTU3502",
+        "ELTU3503"
+    ],
+
+    "Science" : [
+        ["ELTU1001", "ENG1002"],
+        ["ELTU1002", "ENG1002"],
+        ["ELTU2018", "ENG2002S"],
+        ["ELTU2019", "ENG2001"],
+        "ELTU3018",
+        "ELTU3414",
+        "ELTU3415",
+        "ELTU3416",
+        "ELTU3502",
+        "ELTU3503",
+        "ELTU1005",
+        ["ELTU2005", "ENG2001"],
+        "ELTU2006",
+        ["ELTU2007", "ENG2001"],
+        "ELTU2008",
+        ["ELTU2412", "ENG2001"],
+        "ELTU3024",
+        "ELTU3413"
+    ]
+}

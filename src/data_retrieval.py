@@ -23,6 +23,9 @@ Files Description:
     - major_course_list.json : Course list for each major (i.e. Faculty Package, Required Courses, Elective Courses, Research Component)
 
     - 2nd_major_credit_requirement.json : Second Major's Credit Requirement (Major, Credit Requirement)
+    - english_lang_course_list.json : Faculty-specific English language courses;
+      each entry is "CUHK_CODE" (no CUHKSZ substitute) or ["CUHK_CODE", "CUHKSZ_CODE"].
+      NOTE: pairs come straight from this file - equivalence_courses.csv is NOT consulted.
 """
 
 # --- Load Data ---
@@ -33,6 +36,7 @@ class CourseDataContext:
     equivalence_bidicts: dict[str, bidict] 
     course_list: dict
     major_2_requirement: dict
+    english_lang_courses: dict[str, list]
     
 def load_all_data() -> CourseDataContext:
     try:
@@ -127,13 +131,16 @@ def load_all_data() -> CourseDataContext:
     course_list = _load_json("data/major_course_list.json")
     
     major_2_requirement = _load_json("data/2nd_major_credit_requirement.json")
+    english_lang_courses = _load_json("data/english_lang_course_list.json")
+
     
     return CourseDataContext(
         course_info = course_info,
         equivalence_courses = equivalence_courses,
         equivalence_bidicts = equivalence_bidicts,
         course_list = course_list,
-        major_2_requirement = major_2_requirement
+        major_2_requirement = major_2_requirement,
+        english_lang_courses = english_lang_courses
     )
     
     """
@@ -303,3 +310,29 @@ def show_course_info(
     
 def get_major_2_requirement(context: CourseDataContext, major : str, category : str) -> int:
     return context.major_2_requirement[major][category]
+
+def get_english_course_list(
+    context : CourseDataContext,
+    faculties : tuple[str, ...],
+) -> list[str | list[str]]:
+    """Merged, de-duplicated English language course entries across faculties.
+
+    Each entry is "CUHK_CODE" (no CUHKSZ substitute) or
+    ["CUHK_CODE", "CUHKSZ_CODE"] - taken verbatim from
+    english_lang_course_list.json, never from equivalence_courses.csv.
+    De-duplication key is the CUHK code; the first occurrence wins.
+    """
+    merged : list[str | list[str]] = []
+    seen : set[str] = set()
+    for faculty in faculties:
+        try:
+            entries = context.english_lang_courses[faculty]
+        except KeyError as e:
+            raise InfoMissingError(f"No English course list for faculty: {faculty}") from e
+        for entry in entries:
+            hk = entry[0] if isinstance(entry, list) else entry
+            if hk in seen:
+                continue
+            seen.add(hk)
+            merged.append(entry)
+    return merged

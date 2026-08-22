@@ -52,10 +52,17 @@ if __name__ == "__main__":
         st.stop()
 
     if major_2nd: # Display only when 2nd major is selected
-        st.caption("\\* Data updated as of 17 Aug 2026 ([See the changes](https://idadm.notion.site/study-scheme-change?source=copy_link))")
-        st.caption("** This is unofficial. Please be aware that there may be mistakes.")
-        st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
-        st.caption("If you encounter any bugs, please contact me via [email](mailto:alex-zsk@link.cuhk.edu.hk) or [GitHub Issues](https://github.com/zalexk/IDADM_Course_Helper/issues).")
+        caption, changelog = st.columns(2)
+        with caption:
+            st.caption("\\* Data updated as of 17 Aug 2026 ([See the changes](https://idadm.notion.site/study-scheme-change?source=copy_link))")
+            st.caption("** This is unofficial. Please be aware that there may be mistakes.")
+            st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
+            st.caption("If you encounter any bugs, please contact me via [email](mailto:alex-zsk@link.cuhk.edu.hk) or [GitHub Issues](https://github.com/zalexk/IDADM_Course_Helper/issues).")
+            
+        with changelog:
+            with st.expander("Read what’s new `v1.1`"):
+                st.markdown("**`v1.1`:** Support to import courses, Add courses for Chinese Language and English Language")
+                st.markdown("**`v1.0`:** Support login function to save your input")
 
         ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(
             [
@@ -69,7 +76,7 @@ if __name__ == "__main__":
 
         
         with ucore_tab:
-            ucore.ui(context)
+            ucore.ui(context, major_2nd)
 
         with major_1_tab:
             ida.ui(context, major_2nd)

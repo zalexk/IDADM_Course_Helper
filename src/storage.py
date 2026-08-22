@@ -36,12 +36,16 @@ def data_on_change(key: str, df: pd.DataFrame) -> None:
                 "study_period": changes.get("Study Period", base["Study Period"]),
             })
 
-        # 2) Added rows: already complete records (dormant while num_rows="fixed")
+        # 2) Added rows (dynamic tables): no index label exists yet, so the
+        #    identity is the course code — first token of the typed "CUHK" cell.
         for row in added:
+            cid = str(row.get("CUHK") or "").strip().split()[0]
+            if not cid:
+                continue
             upsert_data(user_id, {
                 "id": user_id,
-                "course_id": row["CUHK"],
-                "study_period": row["Study Period"],
+                "course_id": cid,
+                "study_period": row.get("Study Period"),
             })
 
         # 3) Deleted rows: remove by (id, course_id) using the index label
@@ -146,6 +150,50 @@ def four_area_on_change(key: str, df: pd.DataFrame) -> None:
     user_input_on_change(key, df, table_name="four_area_ge")
 
 
+
+
+def english_on_change(key: str, df: pd.DataFrame) -> None:
+    """English Language catalogue (fixed rows) → 'english' table.
+
+    Like data_on_change, the course identity is the row's index label (the
+    HK course code from english_lang_course_list.json), so editing display
+    text cannot hijack the stored course_id. Unlike data_on_change, rows
+    land in the section's own table and an empty Study Period is stored as
+    NULL (the table's CHECK rejects ''). Credits are not stored — the
+    planner derives them from the catalogue.
+    """
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        return # Never store data for guest users
+
+    # Guard: index must carry canonical course keys, not RangeIndex row numbers
+    if len(df.index) > 0 and not isinstance(df.index[0], str):
+        st.error("Table index must carry course keys.")
+        return
+
+    edit_state = st.session_state[key]
+    edited  = edit_state.get("edited_rows", {})  # {row_index: {column: new_value}}
+    deleted = edit_state.get("deleted_rows", []) # [row_index, ...]
+
+    try:
+        # Only Study Period is editable; identity = the index label.
+        for index, changes in edited.items():
+            base = df.iloc[int(index)]
+            study_period = changes.get("Study Period", base["Study Period"]) or None
+            upsert_data(user_id, {
+                "id": user_id,
+                "course_id": df.iloc[int(index)].name,
+                "study_period": study_period,
+            }, table_name="english")
+
+        # Rows are fixed (no add), but honour deletion if it ever occurs.
+        for index in deleted:
+            delete_data(user_id, df.iloc[int(index)].name, table_name="english")
+
+    except Exception:
+        st.error("Failed to save changes, please try again.") # exception chain preserved in traceback
+
+
 def fetch_data(user_id : str, 
                table_name : str = "study_plan") -> list[dict]:
     
@@ -187,7 +235,7 @@ def fetch_all_planned(user_id : str) -> list[dict]:
     'source' key identifying the originating table.
     """
     result : list[dict] = []
-    for table in ("study_plan", "pe", "college_ge", "four_area_ge"):
+    for table in ("study_plan", "pe", "college_ge", "four_area_ge", "english"):
         for row in fetch_data(user_id, table):
             entry = dict(row)
             entry["source"] = table

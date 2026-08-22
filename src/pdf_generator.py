@@ -7,6 +7,7 @@ and a year-total at the bottom. Adapted to the refactored unified course table
 """
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fpdf import FPDF
 from fpdf.fonts import FontFace
@@ -17,7 +18,25 @@ import pandas as pd
 from app.constant import STUDY_CAMPUS
 
 
+def _format_now(user_tz : str | None) -> str:
+    """Return "YYYY-MM-DD HH:MM" in the user's tz, UTC if unknown/invalid.
+
+    Avoids leaking the server clock (UTC on Streamlit Cloud) into the export
+    footer when the browser reports a different timezone via st.context.
+    """
+    try:
+        tz = ZoneInfo(user_tz) if user_tz else ZoneInfo("UTC")
+    except Exception:
+        tz = ZoneInfo("UTC")
+    return datetime.now(tz).strftime("%Y-%m-%d %H:%M")
+
+
 class StudyPlanPDF(FPDF):
+    def __init__(self, *, user_tz : str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        # Captured once so every page footer shows the same timestamp.
+        self._generated_on = _format_now(user_tz)
+
     def header(self):
         self.set_font("Helvetica", "B", 16)
         self.cell(0, 10, "IDADM Study Plan", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
@@ -26,15 +45,17 @@ class StudyPlanPDF(FPDF):
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
-        self.cell(0, 10, f"Page {self.page_no()}/{{nb}} - Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}", align="C")
+        self.cell(0, 10, f"Page {self.page_no()}/{{nb}} - Generated on {self._generated_on}", align="C")
 
 
-def generate_study_plan_pdf(study_plan_df: pd.DataFrame, major_2_name: str) -> bytes:
+def generate_study_plan_pdf(study_plan_df : pd.DataFrame, major_2_name : str, *, user_tz : str | None = None) -> bytes:
     """Generate a PDF from the unified study-plan DataFrame.
 
     Expected columns: Course, Credits, Study Period.
+    `user_tz` is an IANA timezone name (e.g. "Asia/Hong_Kong") forwarded from
+    `st.context.timezone`; UTC is used when the caller doesn't supply one.
     """
-    pdf = StudyPlanPDF()
+    pdf = StudyPlanPDF(user_tz=user_tz)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
