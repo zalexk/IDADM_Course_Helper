@@ -20,6 +20,7 @@ from src.course_import import (
     CourseImportError,
     build_preview_rows,
     canonical_course_id,
+    classify_course,
     default_category,
     extract_courses,
     normalize_period,
@@ -330,6 +331,31 @@ class TestBuildPreviewRows:
         assert df.iloc[0]["Course ID"] == str(hk_id).upper()
 
 
+class TestClassifyCourse:
+    def test_cuhk_engg_rejected_by_cuhksz_english_rule(self):
+        # ENGG* starts with the CUHKSZ ENG* English prefix; the campus
+        # check must reject both ids so they route via the catalogue.
+        assert ci.classify_course("ENGG1110") is None
+        assert ci.classify_course("ENGG1003") is None
+
+    def test_cuhksz_english_still_matches(self):
+        assert ci.classify_course("ENG1001") == ("CUHKSZ", "english")
+
+    def test_hk_prefixes_still_match(self):
+        assert ci.classify_course("ELTU1001") == ("CUHK", "english")
+        assert ci.classify_course("GECC1130") == ("CUHK", "college_ge")
+        assert ci.classify_course("UGCA1001") == ("CUHK", "four_area_ge")
+        assert ci.classify_course("PHED1000") == ("CUHK", "pe")
+
+    def test_sz_prefixes_still_match(self):
+        assert ci.classify_course("PED1201") == ("CUHKSZ", "pe")
+        assert ci.classify_course("GEC1001") == ("CUHKSZ", "four_area_ge")
+
+    def test_short_id_falls_through(self):
+        # Too short to encode a campus: the prefix rule is unconfirmed.
+        assert ci.classify_course("ENG1") is None
+
+
 class TestDefaultCategory:
     context = load_all_data()
     MAJOR_2 = "Computer Science and Engineering"
@@ -346,6 +372,11 @@ class TestDefaultCategory:
         ("GECW1000", "University Core: College GE"),   # must not be caught by GEC
         ("GENA1000", "University Core: College GE"),
         ("GEUC2000", "University Core: College GE"),
+        ("ENGG1110", "IDA: Faculty Package"),   # must not be caught by ENG
+        ("ENGG1003", "University Core: GE Courses"),   # must not be caught by ENG
+        ("ENGG2440", "IDA: Required Courses"),   # must not be caught by ENG
+        ("UGCP1001", "University Core: GE Courses"),   # must not be caught by UGC
+        ("UGCP1002", "University Core: GE Courses"),   # must not be caught by UGC
         ("GEC1001", "University Core: Four Areas of GE"),  # SZ prefix still wins
         ("PED1201", "University Core: PE"),
         ("ZZZZ9999", "Other Courses"),          # unknown id
@@ -543,17 +574,17 @@ class TestWriteConfirmed:
 
         def flaky(user_id, data, table_name="study_plan"):
             seen.append(data["course_id"])
-            if data["course_id"] == "PHED2":
+            if data["course_id"] == "PED1201":
                 raise RuntimeError("supabase down")
 
         monkeypatch.setattr(ci, "upsert_data", flaky)
         df = pd.DataFrame([
             {"Course ID": "CSCI1120", "Recognized": True, "Study Period": "Year 1 Sem 1"},
-            {"Course ID": "PHED2", "Recognized": True, "Study Period": "Year 1 Sem 1"},
+            {"Course ID": "PED1201", "Recognized": True, "Study Period": "Year 1 Sem 1"},
             {"Course ID": "MATH1010", "Recognized": True, "Study Period": "Year 1 Sem 1"},
         ])
         count = ci.write_confirmed(self.context, "u", df)
-        assert seen == ["CSCI1120", "PHED2", "MATH1010"]  # continued past the failure
+        assert seen == ["CSCI1120", "PED1201", "MATH1010"]  # continued past the failure
         assert count == 2                                  # failed row not counted
 
 

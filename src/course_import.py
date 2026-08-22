@@ -91,17 +91,18 @@ def _section_keys(context : CourseDataContext, major : str, section : str) -> se
 def default_category(context : CourseDataContext, cid : str, major_2 : str) -> str:
     """User-facing category for a course id (see CATEGORY_TABLES).
 
-    Prefix-matched non-catalogue courses get their input-table category;
-    catalogue courses get the first section containing them (University Core
-    before 1st major before 2nd major); anything else lands in the generic
-    "Other Courses" bucket.
+    Catalogue courses get the first section containing them (University
+    Core before 1st major before 2nd major); the remaining prefix-matched
+    courses get their input-table category - this ordering keeps catalogue
+    rows like UGCP1001/2 out of the UGC-prefixed Four Areas table; anything
+    else lands in the generic "Other Courses" bucket.
     """
-    routed : tuple[str, str] | None = classify_course(cid)
-    if routed is not None:
-        return _RULE_CATEGORY[routed[1]]
     for category, major, section in _SECTION_CATEGORY:
         if cid in _section_keys(context, major, section):
             return category
+    routed : tuple[str, str] | None = classify_course(cid)
+    if routed is not None:
+        return _RULE_CATEGORY[routed[1]]
     electives = get_course_list(context, major_2)["1st Major Elective Courses"]
     for category, group in (
         ("IDA: Elective Group A", "A"),
@@ -134,9 +135,12 @@ PREVIEW_COLUMNS : list[str] = [
     "Study Period", "Credits", "Category",
 ]
 
-# Campus-prefix rules for courses OUTSIDE the catalogue (user-input sections
-# of University Core). Prefixes are matched case-insensitively on the course
-# id, first match wins; catalogue courses never reach these rules.
+# Campus-prefix rules for University Core courses entered via the
+# user-input sections. Prefixes are matched case-insensitively on the
+# course id and cross-checked against determine_campus, so a rule only
+# fires when the id actually encodes that campus: CUHK ENGG1110/ENGG1003
+# (ENGG* starts with the CUHKSZ ENG* English prefix) fall through to the
+# catalogue instead of the English Language table.
 #   CUHK: PHED* (PE), GE[CC|NA|SC|UC|MC|SH|CW|YS|WS]* (College GE),
 #         UG[ABCD]* (Four Area GE), ELTU* (English)
 #   CUHKSZ: PED* (PE), GE[ABCD]* (Four Area GE), ENG* (English)
@@ -157,8 +161,8 @@ _INPUT_PREFIX_RULES : tuple[tuple[str, str, str], ...] = (
     ("PED", "CUHKSZ", "pe"),
     ("UGA", "CUHK", "four_area_ge"),
     ("UGB", "CUHK", "four_area_ge"),
-    ("UGC", "CUHK", "four_area_ge"),  # note: UGCP1001/2 are catalogue rows and
-    ("UGD", "CUHK", "four_area_ge"),  # never reach this table via import
+    ("UGC", "CUHK", "four_area_ge"),  # UGCP1001/2 are catalogue rows: section
+    ("UGD", "CUHK", "four_area_ge"),  # matching runs before these prefix rules
     ("GEA", "CUHKSZ", "four_area_ge"),
     ("GEB", "CUHKSZ", "four_area_ge"),
     ("GEC", "CUHKSZ", "four_area_ge"),
@@ -170,11 +174,24 @@ _INPUT_PREFIX_RULES : tuple[tuple[str, str, str], ...] = (
 
 def classify_course(cid : str) -> tuple[str, str] | None:
     """(campus, input-table) for prefix-matched non-catalogue courses;
-    None when no rule applies (catalogue course or unknown prefix)."""
+    None when no rule applies (catalogue course or unknown prefix).
+
+    Each prefix rule is validated against determine_campus: a rule fires
+    only when the course id encodes the rule's campus. This stops CUHK ids
+    whose prefix collides with a CUHKSZ rule (ENGG1110/ENGG1003 vs the
+    ENG* English rule) from being misrouted into the English Language
+    table. Ids too short to encode a campus fail the check and fall
+    through to the catalogue / "Other Courses" path.
+    """
     upper = cid.strip().upper()
     for prefix, campus, table in _INPUT_PREFIX_RULES:
         if upper.startswith(prefix):
-            return campus, table
+            try:
+                actual = determine_campus(upper)
+            except DataLoadError:
+                continue  # too short to encode a campus: rule unconfirmed
+            if actual == ("hk" if campus == "CUHK" else "sz"):
+                return campus, table
     return None
 
 _SYSTEM_PROMPT : str = """\
@@ -554,7 +571,13 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
         table : str | None = CATEGORY_TABLES.get(category) if isinstance(category, str) else None
         if table is None: # missing/stale category: derive it as best effort
             routed : tuple[str, str] | None = classify_course(cid)
-            if routed is not None:
+            if routed is not None and (
+                routed[1] == "english" or not _in_catalogue(context, cid)
+            ):
+                # english is the catalogue English section's own table; the
+                # pe/college_ge/four_area_ge input tables only take
+                # non-catalogue courses (catalogue rows belong to their
+                # section, e.g. UGCP1001/2 -> study_plan).
                 table = routed[1]
             elif _in_catalogue(context, cid):
                 table = "study_plan"
