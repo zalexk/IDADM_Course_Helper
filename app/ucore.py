@@ -199,6 +199,5 @@ def ui(context : CourseDataContext, major_2 : str):
         context, "University Core", "Chinese Language",
         "ucore-chinese", data_on_change,
         title = "Chinese Language",
-        dynamic = True,
     )
     _english_language_section(context, major_2)
