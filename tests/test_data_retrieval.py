@@ -288,6 +288,46 @@ class TestDataOnChange:
         storage.data_on_change("delkey", df)
         assert deletes == ["DOTE1030"]  # index label, not the display label
 
+    def test_clearing_period_deletes_row(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["clearkey"] = {
+            "edited_rows": {"0": {"Study Period": None}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["DOTE1030 Eco"], "CUHKSZ": ["ECO2011 Micro"], "Credits": [3], "Study Period": ["Year 1 Sem 1"]},
+            index=["DOTE1030"],
+        )
+        deletes: list[str] = []
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("clearkey", df)
+        assert deletes == ["DOTE1030"]  # clearing the period = deleting the course
+        assert upserts == []            # no NULL-period row is written
+
+    def test_blank_period_also_deletes(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["blankkey"] = {
+            "edited_rows": {"0": {"Study Period": "   "}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["DOTE1030 Eco"], "CUHKSZ": ["ECO2011 Micro"], "Credits": [3], "Study Period": ["Year 1 Sem 1"]},
+            index=["DOTE1030"],
+        )
+        deletes: list[str] = []
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("blankkey", df)
+        assert deletes == ["DOTE1030"]
+        assert upserts == []
+
 
 class TestChineseLanguageCatalogue:
     """Chinese Language is a fixed catalogue section of University Core
@@ -359,6 +399,24 @@ class TestChineseLanguageCatalogue:
         st.session_state["ucore-chinese"] = {
             "edited_rows": {},
             "added_rows": [{"CUHK": "", "CUHKSZ": "", "Credits": 3, "Study Period": ""}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["CHLT1001 University Chinese I"], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+            index=["CHLT1001"],
+        )
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("ucore-chinese", df)
+        assert upserts == []
+
+    def test_dynamic_added_row_without_period_skipped(self, monkeypatch):
+        # A code without a term is not planned: no NULL-period row.
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["ucore-chinese"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "CHLT2001 Extra Chinese", "Study Period": ""}],
             "deleted_rows": [],
         }
         df = pd.DataFrame(

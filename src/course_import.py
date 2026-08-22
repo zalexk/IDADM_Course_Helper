@@ -33,7 +33,7 @@ from src.data_retrieval import (
     get_course_info,
     get_course_list,
 )
-from src.storage import upsert_data
+from src.storage import delete_data, upsert_data
 # Sections a user sees on the app's tabs -> import category. Categories map
 # onto the underlying Supabase tables; the labels stay user-facing so the
 # preview never exposes table names like "study_plan" or "pe".
@@ -130,8 +130,8 @@ MAX_IMAGE_EDGE : int = 1600    # px cap on the long edge (token cost control)
 RENDER_SCALE : int = 2         # ~144 dpi PDF rasterization
 SUPPORTED_TYPES : tuple[str, ...] = ("png", "jpg", "jpeg", "webp", "pdf")
 PREVIEW_COLUMNS : list[str] = [
-    "Course ID", "Course", "Recognized", "Existing Period", "Study Period",
-    "Credits", "Category",
+    "Import", "Course ID", "Course", "Recognized", "Existing Period",
+    "Study Period", "Credits", "Category",
 ]
 
 # Campus-prefix rules for courses OUTSIDE the catalogue (user-input sections
@@ -345,6 +345,14 @@ def canonical_course_id(context : CourseDataContext, course_id : str) -> str:
     return cid
 
 
+def _stored_course_code(course_id : Any) -> str:
+    """Bare code of a stored course_id: study_plan/english rows already hold
+    the code alone; input-table rows hold a 'CODE Title' cell whose first
+    token is the code."""
+    text = str(course_id or "").strip()
+    return text.split(maxsplit=1)[0] if text else ""
+
+
 def build_preview_rows(
     context : CourseDataContext,
     llm_rows : list[dict],
@@ -353,23 +361,33 @@ def build_preview_rows(
 ) -> pd.DataFrame:
     """Raw LLM rows ({code,title,term,credits}) -> editable preview DataFrame.
 
-    existing: rows from fetch_all_planned (all tables, tagged with 'source')
-    feeding the read-only "Existing Period" column - a course may already be
-    planned in any table, not just study_plan. Blank codes are dropped;
-    duplicate canonical ids keep the first occurrence; unrecognized titles
-    get a warning prefix so hallucinated courses cannot slip into the plan
-    unnoticed.
+    existing: rows from fetch_all_planned (all tables, tagged with 'source').
+    A course may already be planned in any table, not just study_plan; its
+    row feeds the read-only "Existing Period" column AND flips the "Import"
+    checkbox off by default - re-importing an old transcript must not
+    silently duplicate previously entered courses. The user can still check
+    it to update the saved Study Period. Matching runs on the bare code
+    (input-table rows store 'CODE Title' cells) canonicalized to the HK
+    equivalent, so a transcript and a plan row for the same course always
+    collide. Blank codes are dropped; duplicate canonical ids keep the first
+    occurrence; unrecognized titles get a warning prefix so hallucinated
+    courses cannot slip into the plan unnoticed.
 
     Credits: catalogue credits for recognized courses (the planner always
     derives those from the catalogue), the transcript's value for
     unrecognized ones - input-table rows persist it.
     """
     existing_period : dict[str, str] = {}
+    existing_codes : set[str] = set()
     for row in existing:
-        cid = str(row.get("course_id") or "")
+        code = _stored_course_code(row.get("course_id"))
+        if not code:
+            continue
+        canonical = canonical_course_id(context, code)
+        existing_codes.add(canonical)
         period = row.get("study_period") or ""
-        if cid and period and cid not in existing_period:
-            existing_period[cid] = period
+        if period and canonical not in existing_period:
+            existing_period[canonical] = period
     records : list[dict] = []
     seen : set[str] = set()
     for row in llm_rows:
@@ -395,6 +413,7 @@ def build_preview_rows(
             except (TypeError, ValueError):
                 credits = None
         records.append({
+            "Import": cid not in existing_codes,
             "Course ID": cid,
             "Course": f"{cid} {title}" if recognized else f"⚠ {title}",
             "Recognized": recognized,
@@ -496,14 +515,15 @@ def _clean_credits(value : Any, default : int) -> int:
 def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFrame) -> int:
     """Persist confirmed preview rows, routed by the Category column.
 
-    The preview is fully editable: the user may correct Course ID cells and
-    re-target a row via the Category dropdown, so routing follows the
-    (possibly edited) Category; a missing/stale category falls back to
-    prefix + catalogue routing. Input-table categories (PE / College GE /
-    Four Areas / English) import regardless of catalogue recognition - the
-    user explicitly said where the course belongs. Study-plan categories
-    require a catalogue entry: unknown ids are skipped (summarized in one
-    st.info) - they need manual entry on their tab.
+    The preview is fully editable: the user may correct Course ID cells,
+    re-target a row via the Category dropdown, and uncheck the "Import"
+    checkbox to skip a row. Rows left unchecked (or a stale preview without
+    the column, which counts as checked) are never written. Input-table
+    categories (PE / College GE / Four Areas / English) import regardless of
+    catalogue recognition - the user explicitly said where the course
+    belongs. Study-plan categories require a catalogue entry: unknown ids
+    are skipped (summarized in one st.info) - they need manual entry on
+    their tab.
 
     Per-table identity conventions (mirroring how each tab saves rows):
     study_plan/english store the bare course code; the input tables store
@@ -512,11 +532,15 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
 
     Per-row semantics mirror user_input_on_change: a failing row shows one
     st.error while already-written rows stay; returns the upsert count.
-    Empty Study Period stores NULL.
+    Empty Study Period stores NULL - except on the study_plan table, where a
+    row with no term is deleted instead: the course is removed from the plan
+    (deleting a course = clearing its study period).
     """
     count : int = 0
     skipped : list[str] = []
     for _, row in df.iterrows():
+        if not bool(row.get("Import", True)):
+            continue # unchecked in the preview: user decided to skip it
         cid = str(row["Course ID"] or "").strip().upper()
         if not cid:
             continue
@@ -540,6 +564,22 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
         elif table == "study_plan" and not _in_catalogue(context, cid):
             skipped.append(cid)
             continue # unknown id: left for manual entry on the tabs
+        if table in _INPUT_TABLES:
+            # Input sections persist the whole 'CODE Title' cell as course_id
+            # (mirroring user_input_on_change) and carry a credits column.
+            payload["course_id"] = _input_table_course_id(cid, row.get("Course"))
+            payload["credits"] = _clean_credits(
+                row.get("Credits"), _INPUT_TABLE_CREDIT_DEFAULTS[table]
+            )
+        if table == "study_plan" and payload["study_period"] is None:
+            # No study period = remove the course from the plan, not "planned
+            # with no term": a NULL-period study_plan row is invisible junk.
+            # Input tables keep their NULL convention (partial-fill rows).
+            try:
+                delete_data(user_id, cid, table_name="study_plan")
+            except Exception:
+                st.error(f"Failed to delete {cid}, please try again.")
+            continue
         try:
             upsert_data(user_id, payload, table_name=table)
         except Exception:

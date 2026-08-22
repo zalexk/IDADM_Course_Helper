@@ -469,6 +469,10 @@ def _import_courses(context : CourseDataContext, user_id : str, major_2 : str) -
 
         st.markdown(
             "**Check before confirming**\n"
+            "- **Import** — checked by default. Courses already in your "
+            "plan are unchecked, so re-importing an old transcript never "
+            "duplicates them; check one anyway to update its saved Study "
+            "Period. Confirming writes only checked rows.\n"
             "- **Course ID** — editable: fix any misread code here.\n"
             "- **Recognized** — ✓ means the code was found in the course "
             "catalogue. Unrecognized rows (⚠) are only imported when their "
@@ -492,6 +496,12 @@ def _import_courses(context : CourseDataContext, user_id : str, major_2 : str) -
             hide_index=True,
             height="content",
             column_config={
+                "Import": st.column_config.CheckboxColumn(
+                    "Import",
+                    help="Checked = import this row. Courses already in "
+                         "your plan are unchecked by default; check one to "
+                         "update its saved Study Period.",
+                ),
                 **study_period_col_config,
                 "Credits": st.column_config.NumberColumn(
                     "Credits",

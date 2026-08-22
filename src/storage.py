@@ -8,6 +8,17 @@ _key : str = st.secrets["SUPABASE_KEY"]
 client: Client = create_client(_url, _key)
 
 
+def _period_is_empty(value) -> bool:
+    """True when a Study Period cell carries no usable term (None / NaN /
+    blank). A course with no term does not belong in the study plan."""
+    if isinstance(value, str):
+        return not value.strip()
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def data_on_change(key: str, df: pd.DataFrame) -> None:
     user_id = st.session_state.get("user_id")
     if not user_id:
@@ -30,10 +41,16 @@ def data_on_change(key: str, df: pd.DataFrame) -> None:
         for index, changes in edited.items():
             base = df.iloc[int(index)]
 
+            period = changes.get("Study Period", base["Study Period"])
+            if _period_is_empty(period):
+                # Clearing the study period deletes the course from the plan
+                # (a NULL-period study_plan row is invisible junk).
+                delete_data(user_id, df.iloc[int(index)].name)
+                continue
             upsert_data(user_id, {
                 "id": user_id,
                 "course_id": df.iloc[int(index)].name,
-                "study_period": changes.get("Study Period", base["Study Period"]),
+                "study_period": period,
             })
 
         # 2) Added rows (dynamic tables): no index label exists yet, so the
@@ -42,6 +59,8 @@ def data_on_change(key: str, df: pd.DataFrame) -> None:
             cid = str(row.get("CUHK") or "").strip().split()[0]
             if not cid:
                 continue
+            if _period_is_empty(row.get("Study Period")):
+                continue # no term yet: not planned until a period is set
             upsert_data(user_id, {
                 "id": user_id,
                 "course_id": cid,

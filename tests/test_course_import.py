@@ -217,7 +217,7 @@ class TestBuildPreviewRows:
     def test_columns_and_recognition(self):
         df = build_preview_rows(self.context, self.ROWS, [], self.MAJOR_2)
         assert list(df.columns) == [
-            "Course ID", "Course", "Recognized",
+            "Import", "Course ID", "Course", "Recognized",
             "Existing Period", "Study Period", "Credits", "Category",
         ]
         first = df.iloc[0]
@@ -238,17 +238,21 @@ class TestBuildPreviewRows:
         assert df.iloc[1]["Credits"] == 1   # transcript credits kept
         assert pd.isna(df.iloc[2]["Credits"]) # no credits in JSON -> empty
 
-    def test_existing_period_lookup_and_duplicates(self):
+    def test_existing_courses_unchecked_by_default(self):
+        # A course already planned is shown (with its saved period) but its
+        # Import checkbox defaults to False - no silent re-import.
         existing = [{"course_id": "CSCI1120", "study_period": "Year 4 Sem 2"}]
         df = build_preview_rows(self.context, self.ROWS, existing, self.MAJOR_2)
         row = df[df["Course ID"] == "CSCI1120"].iloc[0]
         assert row["Existing Period"] == "Year 4 Sem 2"
-        # Duplicate lowercase id collapsed into one row.
-        assert (df["Course ID"] == "CSCI1120").sum() == 1
+        assert bool(row["Import"]) is False
+        # Everything not already planned defaults to checked.
+        assert bool(df[df["Course ID"] == "ZZZZ9999"].iloc[0]["Import"]) is True
 
     def test_existing_period_spans_all_tables(self):
         # fetch_all_planned rows: same course in two tables -> first
-        # non-empty period wins, regardless of the source table.
+        # non-empty period wins, regardless of the source table; the row is
+        # unchecked either way.
         existing = [
             {"course_id": "PHED1000", "study_period": None, "source": "study_plan"},
             {"course_id": "PHED1000", "study_period": "Year 1 Sem 1", "source": "pe"},
@@ -260,7 +264,48 @@ class TestBuildPreviewRows:
             self.MAJOR_2,
         )
         assert df.iloc[0]["Existing Period"] == "Year 1 Sem 1"
+        assert bool(df.iloc[0]["Import"]) is False
         assert df.iloc[0]["Category"] == "University Core: PE"
+
+    def test_existing_input_table_cell_matches_bare_code(self):
+        # Input tables store the whole 'CODE Title' cell as course_id; the
+        # bare-code match still unchecks the row and surfaces its period.
+        existing = [{"course_id": "PHED1000 PE", "study_period": "Year 1 Sem 1",
+                     "source": "pe"}]
+        df = build_preview_rows(
+            self.context,
+            [{"code": "PHED1000", "title": "PE", "term": ""}],
+            existing,
+            self.MAJOR_2,
+        )
+        assert bool(df.iloc[0]["Import"]) is False
+        assert df.iloc[0]["Existing Period"] == "Year 1 Sem 1"
+
+    def test_existing_sz_equivalent_unchecked(self):
+        # An existing HK row unchecks the transcript's SZ spelling too: both
+        # canonicalize to the same id.
+        pair = next(
+            (hk, sz)
+            for mapping in self.context.equivalence_courses.values()
+            for hk, sz in mapping.items()
+        )
+        hk_id, sz_id = pair
+        df = build_preview_rows(
+            self.context,
+            [{"code": str(sz_id), "title": "x", "term": "Year 1 Sem 1"}],
+            [{"course_id": str(hk_id), "study_period": "", "source": "study_plan"}],
+            self.MAJOR_2,
+        )
+        assert bool(df.iloc[0]["Import"]) is False
+
+    def test_duplicate_transcript_rows_collapse(self):
+        # Same course twice in the transcript -> one preview row.
+        rows = [
+            {"code": "ZZZZ9999", "title": "a", "term": ""},
+            {"code": "zzzz9999", "title": "b", "term": ""},
+        ]
+        df = build_preview_rows(self.context, rows, [], self.MAJOR_2)
+        assert (df["Course ID"] == "ZZZZ9999").sum() == 1
 
     def test_unrecognized_flagged_and_term_blank(self):
         df = build_preview_rows(self.context, self.ROWS, [], self.MAJOR_2)
@@ -397,17 +442,16 @@ class TestWriteConfirmed:
         df = pd.DataFrame([
             {"Course ID": "CSCI1120", "Recognized": True, "Study Period": "Year 1 Sem 1",
              "Category": "IDA: Elective Group A"},
-            {"Course ID": "MATH1010", "Recognized": True, "Study Period": "",
+            {"Course ID": "MATH1010", "Recognized": True, "Study Period": "Year 1 Sem 2",
              "Category": "Other Courses"},
             {"Course ID": "ZZZZ9999", "Recognized": True, "Study Period": "Year 1 Sem 1",
              "Category": "IDA: Elective Group A"},
         ])
         count = ci.write_confirmed(self.context, "user-1", df)
-        assert count == 2                      # unknown id skipped...
+        assert count == 2                      # unknown id skipped
         assert calls[0] == ("study_plan", {
             "id": "user-1", "course_id": "CSCI1120", "study_period": "Year 1 Sem 1",
         })
-        assert calls[1][1]["study_period"] is None  # empty period -> NULL
         assert {d["course_id"] for _, d in calls} == {"CSCI1120", "MATH1010"}
 
     def test_input_category_imports_unrecognized_id(self, monkeypatch):
@@ -447,6 +491,53 @@ class TestWriteConfirmed:
         assert by_id["ENG2050"] == "english"
         assert "ZZZZ9999" not in by_id
 
+    def test_unchecked_rows_skipped(self, monkeypatch):
+        # Import=False rows are never written; a stale preview without the
+        # Import column (pre-migration session state) counts as checked.
+        calls = self._capture(monkeypatch)
+        df = pd.DataFrame([
+            {"Course ID": "CSCI1120", "Recognized": True, "Study Period": "Year 1 Sem 1",
+             "Category": "Other Courses"},
+            {"Import": False, "Course ID": "MATH1010", "Recognized": True,
+             "Study Period": "", "Category": "Other Courses"},
+            {"Import": True, "Course ID": "CHLT1001", "Recognized": False,
+             "Study Period": "Year 1 Sem 1",
+             "Category": "University Core: Chinese Language"},
+        ])
+        assert ci.write_confirmed(self.context, "u", df) == 2
+        assert {d["course_id"] for _, d in calls} == {"CSCI1120", "CHLT1001"}
+
+    def test_empty_period_study_plan_deletes(self, monkeypatch):
+        # Clearing the study period of a study_plan course removes it from
+        # the plan instead of storing a NULL-period row; input-table rows
+        # keep the NULL partial-fill convention.
+        upserts : list[tuple] = []
+        deletes : list[tuple] = []
+        monkeypatch.setattr(
+            ci, "upsert_data",
+            lambda user_id, data, table_name="study_plan":
+                upserts.append((table_name, data)) or ([],),
+        )
+        monkeypatch.setattr(
+            ci, "delete_data",
+            lambda user_id, course_id, table_name="study_plan":
+                deletes.append((table_name, course_id)),
+        )
+        df = pd.DataFrame([
+            {"Import": True, "Course ID": "CSCI1120", "Recognized": True,
+             "Study Period": "", "Category": "Other Courses"},
+            {"Import": True, "Course ID": "MATH1010", "Recognized": True,
+             "Study Period": "Year 1 Sem 1", "Category": "Other Courses"},
+            {"Import": True, "Course ID": "PED1201", "Course": "⚠ Badminton",
+             "Recognized": False, "Study Period": "", "Credits": 1,
+             "Category": "University Core: PE"},
+        ])
+        assert ci.write_confirmed(self.context, "u", df) == 2
+        assert deletes == [("study_plan", "CSCI1120")]
+        assert {d["course_id"] for _, d in upserts} == {"MATH1010", "PED1201 Badminton"}
+        assert [d["study_period"] for _, d in upserts
+                if d["course_id"] == "PED1201 Badminton"] == [None]
+
     def test_row_failure_keeps_others(self, monkeypatch):
         seen : list[str] = []
 
@@ -457,9 +548,9 @@ class TestWriteConfirmed:
 
         monkeypatch.setattr(ci, "upsert_data", flaky)
         df = pd.DataFrame([
-            {"Course ID": "CSCI1120", "Recognized": True, "Study Period": ""},
-            {"Course ID": "PHED2", "Recognized": True, "Study Period": ""},
-            {"Course ID": "MATH1010", "Recognized": True, "Study Period": ""},
+            {"Course ID": "CSCI1120", "Recognized": True, "Study Period": "Year 1 Sem 1"},
+            {"Course ID": "PHED2", "Recognized": True, "Study Period": "Year 1 Sem 1"},
+            {"Course ID": "MATH1010", "Recognized": True, "Study Period": "Year 1 Sem 1"},
         ])
         count = ci.write_confirmed(self.context, "u", df)
         assert seen == ["CSCI1120", "PHED2", "MATH1010"]  # continued past the failure
