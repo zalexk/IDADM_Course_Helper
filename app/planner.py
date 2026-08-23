@@ -10,6 +10,7 @@ import pandas as pd
 
 from src.data_retrieval import (
     CourseDataContext,
+    DataLoadError,
     get_course_list,
     get_course_info,
     get_major_2_requirement,
@@ -64,14 +65,20 @@ def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
     target campus.
     """
     target = "hk" if campus == "CUHK" else "sz"
-    if determine_campus(cid) == target:
+    # Saved rows (PE / College GE / Four Area / imported) may carry codes
+    # that don't satisfy determine_campus's 7-char rule. Don't let a bad id
+    # crash the whole Planner tab — fall back to the raw id.
+    try:
+        if determine_campus(cid) == target:
+            return cid
+    except DataLoadError:
         return cid
     for major in context.equivalence_bidicts:
         try:
             converted = convert_course_id(context, major, cid)
             if determine_campus(converted) == target:
                 return converted
-        except InfoMissingError:
+        except (InfoMissingError, DataLoadError):
             continue
     return cid # no equivalent at that campus: keep the original id
 
@@ -273,7 +280,10 @@ def _compute_major_1(context : CourseDataContext, planned_ids : set[str], major_
     for cid in group_a + group_b:
         key = _course_key(context, _IDA, cid)
         if key in planned_ids:
-            level = determine_level(cid)
+            try:
+                level = determine_level(cid)
+            except DataLoadError:
+                level = 0
             credits = _credits(context, key)
             if level == 4:
                 level_4_credits += credits
@@ -345,7 +355,7 @@ def _requirement_view(
         st.dataframe(
             pd.DataFrame({
                 "Item": list(ucore_req.keys()),
-                "Requirement": list(ucore_req.values()),
+                "Requirement": [str(v) for v in ucore_req.values()],
                 "Fulfil": [ucore_status.get(item, False) for item in ucore_req],
             }),
             hide_index=True,
@@ -358,7 +368,7 @@ def _requirement_view(
         st.dataframe(
             pd.DataFrame({
                 "Item": list(major1_req.keys()),
-                "Requirement": list(major1_req.values()),
+                "Requirement": [str(v) for v in major1_req.values()],
                 "Credits": [major1_status[item][1] for item in major1_req],
                 "Fulfil": [major1_status[item][0] for item in major1_req],
             }),
@@ -371,9 +381,9 @@ def _requirement_view(
             pd.DataFrame({
                 "Item": list(major2_status.keys()),
                 "Requirement": [
-                    (GRADUATION_REQUIREMENT["Research Component"] if item == "Research Component"
-                     else get_major_2_requirement(context, major_2, "Elective Courses") if item == "2nd Major Elective Courses"
-                     else "All required")
+                    str(GRADUATION_REQUIREMENT["Research Component"] if item == "Research Component"
+                        else get_major_2_requirement(context, major_2, "Elective Courses") if item == "2nd Major Elective Courses"
+                        else "All required")
                     for item in major2_status
                 ],
                 "Credits": [major2_status[item][1] for item in major2_status],
