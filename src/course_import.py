@@ -474,7 +474,12 @@ def extract_courses(client : Any, images : list[bytes], model : str) -> list[dic
         raise CourseImportError(
             f"Course extraction request failed: {e}"
         ) from e
-    text = response.choices[0].message.content or ""
+    try:
+        text = response.choices[0].message.content or ""
+    except (AttributeError, IndexError) as e:
+        raise CourseImportError(
+            f"LLM returned no usable completion: {e}"
+        ) from e
     return parse_llm_json(text)
 
 
@@ -523,11 +528,31 @@ def _input_table_course_id(cid : str, display : Any) -> str:
     return f"{cid} {text}" if text else cid
 
 
-def _clean_credits(value : Any, default : int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):  # None / '' / NaN
+def _clean_credits(value : Any, default : int) -> int | None:
+    """Whole-number credits from a preview cell; `default` when the cell is
+    blank (None / '' / NaN); None when the user typed a non-integer number
+    (e.g. 3.5) so the caller can surface an error instead of silently
+    truncating or zeroing the value."""
+    if value is None:
         return default
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return default
+        try:
+            num = float(text)
+        except ValueError:
+            return None
+    else:
+        try:
+            if bool(pd.isna(value)):
+                return default
+            num = float(value)
+        except (TypeError, ValueError):
+            return None
+    if not num.is_integer() or num < 0:
+        return None
+    return int(num)
 
 def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFrame) -> int:
     """Persist confirmed preview rows, routed by the Category column.
@@ -591,9 +616,13 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
             # Input sections persist the whole 'CODE Title' cell as course_id
             # (mirroring user_input_on_change) and carry a credits column.
             payload["course_id"] = _input_table_course_id(cid, row.get("Course"))
-            payload["credits"] = _clean_credits(
+            credits = _clean_credits(
                 row.get("Credits"), _INPUT_TABLE_CREDIT_DEFAULTS[table]
             )
+            if credits is None:
+                st.error(f"Invalid credits for {cid} — please use a whole number.")
+                continue
+            payload["credits"] = credits
         if table == "study_plan" and payload["study_period"] is None:
             # No study period = remove the course from the plan, not "planned
             # with no term": a NULL-period study_plan row is invisible junk.

@@ -30,7 +30,14 @@ def _user_input_section(
     st.header(header)
 
     user_id = st.session_state.get("user_id")
-    saved = fetch_data(user_id, table_name) if user_id else []
+    if user_id:
+        try:
+            saved = fetch_data(user_id, table_name)
+        except Exception:
+            st.error("Failed to load saved courses, please try again.")
+            saved = []
+    else:
+        saved = []
 
     saved_count = len(saved)
     row_count = max(saved_count, default_rows)
@@ -107,10 +114,14 @@ def _english_language_section(context : CourseDataContext, major_2 : str) -> Non
     )
 
     user_id = st.session_state.get("user_id")
-    saved = (
-        {row["course_id"] : row["study_period"] for row in fetch_data(user_id, "english")}
-        if user_id else {}
-    )
+    if user_id:
+        try:
+            saved = {row["course_id"] : row["study_period"] for row in fetch_data(user_id, "english")}
+        except Exception:
+            st.error("Failed to load saved courses, please try again.")
+            saved = {}
+    else:
+        saved = {}
 
     cuhk, sz, credits, period, index = [], [], [], [], []
     for entry in courses:

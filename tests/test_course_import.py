@@ -197,6 +197,21 @@ class TestExtractCourses:
         with pytest.raises(CourseImportError):
             extract_courses(_Boom(), [_png_bytes()], model="m")
 
+    def test_empty_choices_wraps(self):
+        # An LLM reply with no choices is a protocol failure, not an empty
+        # transcript: surface CourseImportError instead of an IndexError.
+        class _NoChoices:
+            class chat:
+                class completions:
+                    @staticmethod
+                    def create(**kwargs):
+                        class _R:
+                            choices = []
+                        return _R()
+
+        with pytest.raises(CourseImportError, match="no usable completion"):
+            extract_courses(_NoChoices(), [_png_bytes()], model="m")
+
     def test_missing_key_raises_before_client_use(self, monkeypatch):
         monkeypatch.setattr(st, "secrets", {}, raising=False)
         with pytest.raises(CourseImportError, match="LLM_API_KEY"):
@@ -586,6 +601,38 @@ class TestWriteConfirmed:
         count = ci.write_confirmed(self.context, "u", df)
         assert seen == ["CSCI1120", "PED1201", "MATH1010"]  # continued past the failure
         assert count == 2                                  # failed row not counted
+
+    def test_fractional_credits_skipped_with_error(self, monkeypatch):
+        # A non-integer credits cell must surface an error, not silently
+        # truncate (int(3.5) == 3) or fall back to the tab default.
+        calls = self._capture(monkeypatch)
+        errors : list[str] = []
+        monkeypatch.setattr(st, "error", lambda msg: errors.append(msg))
+        df = pd.DataFrame([
+            {"Course ID": "PED1201", "Course": "⚠ Badminton", "Recognized": False,
+             "Study Period": "Year 1 Sem 1", "Credits": 2.5, "Category": "University Core: PE"},
+            {"Course ID": "GECC1130", "Course": "⚠ College GE", "Recognized": False,
+             "Study Period": "Year 1 Sem 1", "Credits": 3, "Category": "University Core: College GE"},
+        ])
+        count = ci.write_confirmed(self.context, "u", df)
+        assert count == 1                                  # bad row skipped, good row imported
+        assert len(calls) == 1 and calls[0][0] == "college_ge"
+        assert errors and "Invalid credits for PED1201" in errors[0]
+
+    def test_missing_credits_keeps_tab_default(self, monkeypatch):
+        # A blank Credits cell (NaN in the preview) still uses the tab
+        # default — it is "not filled in", not invalid input.
+        calls = self._capture(monkeypatch)
+        errors : list[str] = []
+        monkeypatch.setattr(st, "error", lambda msg: errors.append(msg))
+        df = pd.DataFrame([
+            {"Course ID": "PED1201", "Course": "⚠ Badminton", "Recognized": False,
+             "Study Period": "Year 1 Sem 1", "Category": "University Core: PE"},
+        ])
+        count = ci.write_confirmed(self.context, "u", df)
+        assert count == 1
+        assert calls[0][1]["credits"] == 1                 # pe default
+        assert errors == []
 
 
 class TestConfigGuards:

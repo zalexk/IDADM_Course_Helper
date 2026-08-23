@@ -51,8 +51,12 @@ def signup_ui():
         
         submit = st.form_submit_button("Signup")
         
-        if submit and username and password:
-            if auth.validate_password_strength(password): # Check password's strength
+        if submit:
+            if not username or not password:
+                st.error("Please fill in both username and password.")
+            elif not auth.validate_password_strength(password): # Check password's strength
+                st.error("Please use stronger password (Minimum 8 characters with uppercase and lowercase)")
+            else:
                 try:
                     if user_id := auth.signup(username, password):
                         st.success("Successful Signup")
@@ -66,10 +70,6 @@ def signup_ui():
                 
                 except auth.AuthServiceError:
                     st.error("Signup failed, please try again.")
-
-            
-            else:
-                st.error("Please use stronger password (Minimum 8 characters with uppercase and lowercase)")
 
             
 

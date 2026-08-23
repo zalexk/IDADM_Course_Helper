@@ -220,6 +220,22 @@ class TestStudyPeriodRead:
         b = show_course_info(context, "University Core", course_list, "sz", "study_period")
         assert a == b
 
+    def test_fetch_failure_degrades_to_blanks(self, context, course_list, monkeypatch):
+        # A Supabase outage must not crash the tab: fetch errors surface as
+        # one st.error and the table renders unpopulated instead.
+        import src.data_retrieval as data_retrieval
+        st.session_state["user_id"] = "test-user"
+        errors : list[str] = []
+
+        def _boom(user_id, table_name="study_plan"):
+            raise RuntimeError("supabase down")
+
+        monkeypatch.setattr(data_retrieval, "fetch_data", _boom)
+        monkeypatch.setattr(st, "error", lambda msg: errors.append(msg))
+        out = show_course_info(context, "University Core", course_list, "hk", "study_period")
+        assert out == ["" for _ in course_list]
+        assert errors and "Failed to load saved study periods" in errors[0]
+
 
 class TestDataOnChange:
     """data_on_change: write-side identity comes from the DataFrame index label."""
@@ -507,6 +523,99 @@ class TestUserInputOnChange:
         monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
         storage.pe_on_change("pekey2", df)
         assert upserts == []  # no course code typed yet → nothing to store
+
+    def test_fractional_credits_error_and_skip(self, monkeypatch):
+        # A non-integer credits cell must surface an error, not silently
+        # truncate (int(3.5) == 3) or zero (int("3.5") -> ValueError -> 0).
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["pefrac"] = {
+            "edited_rows": {"0": {"CUHK": "PHED1001", "Credits": 3.5}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1], "Study Period": ["Y1S1"]},
+        )
+        upserts: list = []
+        errors: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr(st, "error", lambda msg: errors.append(msg))
+        storage.pe_on_change("pefrac", df)
+        assert upserts == []                              # invalid row not written
+        assert errors and "Invalid credits for PHED1001" in errors[0]
+
+    def test_fractional_credits_added_row_error_and_skip(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["pefracadd"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "PHED1001", "Credits": "2.5", "Study Period": "Year 1 Sem 1"}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1], "Study Period": [""]},
+        )
+        upserts: list = []
+        errors: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr(st, "error", lambda msg: errors.append(msg))
+        storage.pe_on_change("pefracadd", df)
+        assert upserts == []
+        assert errors and "Invalid credits for PHED1001" in errors[0]
+
+    def test_blank_credits_stored_as_zero(self, monkeypatch):
+        # Clearing the Credits cell writes 0 (not an error): same as the
+        # pre-existing int('') -> 0 fallback.
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["peblank"] = {
+            "edited_rows": {"0": {"CUHK": "PHED1001", "Credits": ""}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1], "Study Period": ["Y1S1"]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("peblank", df)
+        assert upserts[0][0]["credits"] == 0
+
+    def test_typed_code_whitespace_trimmed(self, monkeypatch):
+        # " PHED1001 " and "PHED1001" are the same course: surrounding
+        # whitespace must not create a second DB row that the planner counts
+        # separately.
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["petrim"] = {
+            "edited_rows": {"0": {"CUHK": "  PHED1001 ", "Study Period": "Year 1 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("petrim", df)
+        assert upserts[0][0]["course_id"] == "PHED1001"
+
+    def test_deleted_row_code_whitespace_trimmed(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["pedeltrim"] = {
+            "edited_rows": {},
+            "added_rows": [],
+            "deleted_rows": [0],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["  UGFN1001 "], "CUHKSZ": [""], "Credits": [3], "Study Period": ["Y1S1"]},
+        )
+        deletes: list = []
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
+        storage.four_area_on_change("pedeltrim", df)
+        assert deletes == [("UGFN1001", "four_area_ge")]
 
 
 class TestUserInputRouting:

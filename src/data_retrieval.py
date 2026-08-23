@@ -291,7 +291,12 @@ def show_course_info(
         if not (user_id := st.session_state.get("user_id")):
             return ["" for _ in courses] # guest: nothing stored
 
-        saved = {row["course_id"]: row["study_period"] for row in fetch_data(user_id)}
+        try:
+            saved = {row["course_id"]: row["study_period"] for row in fetch_data(user_id)}
+        except Exception:
+            st.error("Failed to load saved study periods, please try again.")
+            return ["" for _ in courses] # degrade: show the table unpopulated
+
         return [saved.get(_course_key(context, major, cid), "") for cid in courses]
 
     output_list : list[int | str] = []

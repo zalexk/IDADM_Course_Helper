@@ -465,8 +465,13 @@ def _import_courses(context : CourseDataContext, user_id : str, major_2 : str) -
                         and _pdf_page_count(file_bytes) > MAX_PAGES:
                     st.warning(f"Only the first {MAX_PAGES} pages were parsed.")
                 llm_rows = extract_courses_from_secrets(pages)
+                try:
+                    existing = fetch_all_planned(user_id)
+                except Exception:
+                    st.error("Failed to load your study plan, please try again.")
+                    return
                 st.session_state["course-import-preview"] = build_preview_rows(
-                    context, llm_rows, fetch_all_planned(user_id), major_2,
+                    context, llm_rows, existing, major_2,
                 )
             except CourseImportError as e:
                 st.error(f"Course import failed: {e}")
@@ -556,7 +561,11 @@ def ui(context : CourseDataContext, major_2 : str) -> None:
         return
     _import_courses(context, user_id, major_2)
 
-    all_rows = fetch_all_planned(user_id)
+    try:
+        all_rows = fetch_all_planned(user_id)
+    except Exception:
+        st.error("Failed to load your study plan, please try again.")
+        return
     all_courses = _build_course_table(context, all_rows)
 
     y1, y2, y3, y4, grad_req, overall = st.tabs([

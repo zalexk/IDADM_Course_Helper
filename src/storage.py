@@ -19,6 +19,38 @@ def _period_is_empty(value) -> bool:
         return False
 
 
+def _clean_course_id(value) -> str:
+    """Trimmed string of a typed course cell; '' for None / blank."""
+    if value is None:
+        return ""
+    text = str(value)
+    return text.strip()
+
+
+def _clean_credits(value) -> int | None:
+    """Whole-number credits from a cell; 0 for a blank cell; None when the
+    user typed a non-integer number (e.g. 3.5) so the caller can surface an
+    error instead of silently truncating or zeroing the value."""
+    if value is None:
+        return 0
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        try:
+            num = float(text)
+        except ValueError:
+            return None
+    else:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return None
+    if not num.is_integer() or num < 0:
+        return None
+    return int(num)
+
+
 def data_on_change(key: str, df: pd.DataFrame) -> None:
     user_id = st.session_state.get("user_id")
     if not user_id:
@@ -97,12 +129,6 @@ def user_input_on_change(
     added   = edit_state.get("added_rows", [])    # [{column: value, ...}]
     deleted = edit_state.get("deleted_rows", [])  # [row_index, ...]
 
-    def _clean_credits(value) -> int:
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 0
-
     try:
         # 1) Modified cells: course_id is the "CUHK" cell (user-typed).
         #    Empty study_period is stored as None (DB CHECK passes NULL) so
@@ -110,16 +136,20 @@ def user_input_on_change(
         for index, changes in edited.items():
             base = df.iloc[int(index)]
             # Identity: whichever campus column carries a code (CUHK preferred).
-            course_id = (changes.get("CUHK", base["CUHK"])
-                         or changes.get("CUHKSZ", base["CUHKSZ"]))
+            course_id = (_clean_course_id(changes.get("CUHK", base["CUHK"]))
+                         or _clean_course_id(changes.get("CUHKSZ", base["CUHKSZ"])))
             if not course_id:
                 continue # no identity yet — nothing to store
+            credits = _clean_credits(changes.get("Credits", base["Credits"]))
+            if credits is None:
+                st.error(f"Invalid credits for {course_id} — please use a whole number.")
+                continue
             study_period = changes.get("Study Period", base["Study Period"]) or None
             try:
                 upsert_data(user_id, {
                     "id": user_id,
                     "course_id": course_id,
-                    "credits": _clean_credits(changes.get("Credits", base["Credits"])),
+                    "credits": credits,
                     "study_period": study_period,
                 }, table_name=table_name)
             except Exception:
@@ -127,14 +157,18 @@ def user_input_on_change(
 
         # 2) Added rows: complete records; identity from either campus column.
         for row in added:
-            course_id = row.get("CUHK", "") or row.get("CUHKSZ", "")
+            course_id = _clean_course_id(row.get("CUHK")) or _clean_course_id(row.get("CUHKSZ"))
             if not course_id:
+                continue
+            credits = _clean_credits(row.get("Credits"))
+            if credits is None:
+                st.error(f"Invalid credits for {course_id} — please use a whole number.")
                 continue
             try:
                 upsert_data(user_id, {
                     "id": user_id,
                     "course_id": course_id,
-                    "credits": _clean_credits(row.get("Credits")),
+                    "credits": credits,
                     "study_period": row.get("Study Period") or None,
                 }, table_name=table_name)
             except Exception:
@@ -143,7 +177,7 @@ def user_input_on_change(
         # 3) Deleted rows: remove by the original row's campus cell.
         for index in deleted:
             base = df.iloc[int(index)]
-            course_id = base["CUHK"] or base["CUHKSZ"]
+            course_id = _clean_course_id(base["CUHK"]) or _clean_course_id(base["CUHKSZ"])
             if course_id:
                 try:
                     delete_data(user_id, course_id, table_name=table_name)
