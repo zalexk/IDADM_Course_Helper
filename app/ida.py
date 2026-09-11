@@ -48,6 +48,7 @@ def _catalog_table(
 
 
 def ui(context : CourseDataContext, major_2 : str) -> None:
+    st.info("COOP3001, 3002, 4001 are not counted in 129 credits.")
     # --- Fixed catalogue sections ---
     for category in ("Faculty Package", "Required Courses", "COOP"):
         st.subheader(category)

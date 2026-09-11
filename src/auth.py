@@ -54,6 +54,9 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 def signup(username: str, password: str) -> str | None:
+    # Strip before both the uniqueness check and the insert, so the stored name
+    # matches what signin's stripped lookup will query.
+    username = username.strip()
     try:
         existing = (  # Ensure the user name is unique
             client.table("user")
@@ -101,15 +104,21 @@ def signin(username: str, password: str) -> str | None:
     used as a query condition. Legacy plaintext rows (pre-hashing) still log
     in and are upgraded to a hash on success; a failed upgrade is non-fatal
     because the user is already authenticated.
+
+    Uses a plain SELECT (no ``maybe_single``): in postgrest 2.x that builder
+    returns a bare ``None`` — not an empty response — when the query matches
+    zero rows, which previously crashed ``row.data`` for unknown users.
     """
+    username = username.strip()
     try:
-        row = (
+        rows = (
             client.table("user")
             .select("id", "password")
             .eq("name", username)
-            .maybe_single()
+            .limit(1)
             .execute()
-        )
+            .data
+        ) or []
 
     except APIError as e:
         raise AuthServiceError("Fail to access the database") from e
@@ -117,11 +126,12 @@ def signin(username: str, password: str) -> str | None:
     except Exception as e:
         raise AuthServiceError("Fail to retrieve user's information") from e
 
-    if not row.data:
+    if not rows:
         return None
 
-    stored = row.data.get("password") or ""
-    user_id = row.data["id"]
+    row = rows[0]
+    stored = row.get("password") or ""
+    user_id = row["id"]
 
     if _is_hashed(stored):
         ok = verify_password(password, stored)

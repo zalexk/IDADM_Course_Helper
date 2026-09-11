@@ -194,6 +194,14 @@ def ui(context : CourseDataContext, major_2 : str):
         "ucore-compulsory", data_on_change,
     )
 
+    _catalogue_section(
+        context, "University Core", "Chinese Language",
+        "ucore-chinese", data_on_change,
+        title = "Chinese Language",
+    )
+
+    _english_language_section(context, major_2)
+
     _user_input_section(
         "Physical Education", "ucore-pe", pe_on_change,
         table_name="pe", default_rows=1, default_credits=1, dynamic=True,
@@ -206,9 +214,3 @@ def ui(context : CourseDataContext, major_2 : str):
         "Four Area of GE", "ucore-four-area-ge", four_area_on_change,
         table_name="four_area_ge", default_rows=1, default_credits=3, dynamic=True,
     )
-    _catalogue_section(
-        context, "University Core", "Chinese Language",
-        "ucore-chinese", data_on_change,
-        title = "Chinese Language",
-    )
-    _english_language_section(context, major_2)

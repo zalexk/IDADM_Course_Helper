@@ -16,7 +16,7 @@ class _FakeResp:
 
 
 class _FakeTable:
-    """Records every chain call; select/eq/maybe_single/update return self."""
+    """Records every chain call; select/eq/limit/update return self."""
 
     def __init__(self, rows=None, user_id="u1"):
         self.rows = rows or []
@@ -24,7 +24,6 @@ class _FakeTable:
         self.calls = []
         self.inserted = None
         self.updated = None
-        self._single = False
         self._insert_mode = False
 
     def select(self, *cols):
@@ -35,15 +34,13 @@ class _FakeTable:
         self.calls.append(("eq", (col, val)))
         return self
 
-    def maybe_single(self):
-        self._single = True
+    def limit(self, n):
+        self.calls.append(("limit", n))
         return self
 
     def execute(self):
         if self._insert_mode:
             return _FakeResp([{**self.inserted, "id": self.user_id}])
-        if self._single:
-            return _FakeResp(self.rows[0] if self.rows else None)
         return _FakeResp(self.rows)
 
     def insert(self, payload):
@@ -118,6 +115,12 @@ class TestSignup:
         assert signup("alice", PASSWORD) is None
         assert fake.inserted is None
 
+    def test_username_stripped_on_insert(self, fake):
+        assert signup("  alice  ", PASSWORD) == "u1"
+        assert fake.inserted["name"] == "alice"
+        eq_calls = [args for op, args in fake.calls if op == "eq"]
+        assert ("name", "alice") in eq_calls
+
 
 class TestSignin:
     def test_hashed_row_success(self, fake):
@@ -152,3 +155,9 @@ class TestSignin:
     def test_unknown_user(self, fake):
         assert signin("nobody", PASSWORD) is None
         assert fake.updated is None
+
+    def test_username_stripped_before_query(self, fake):
+        fake.rows = [{"id": "u1", "password": hash_password(PASSWORD)}]
+        assert signin("  alice  ", PASSWORD) == "u1"
+        eq_calls = [args for op, args in fake.calls if op == "eq"]
+        assert ("name", "alice") in eq_calls

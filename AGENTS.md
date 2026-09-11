@@ -84,6 +84,6 @@ docker compose up -d --build     # 容器部署（需要 .streamlit/secrets.toml
 ## 测试与质量保证
 
 - **框架**：pytest，无配置文件（无 `pytest.ini`/`[tool.pytest]`）。`tests/conftest.py` 在收集前 stub `supabase` 模块并绑定 `st.secrets`，使全部测试离线可跑；autouse fixture 为每个测试提供隔离的 `st.session_state`。
-- **运行**：`uv run pytest tests/ -v`（61 个测试，全部通过）。
-- **覆盖**：`test_data_retrieval.py`（46 个）覆盖 `src/data_retrieval.py` 与 `src/storage.py` 的纯函数、数据完整性、课程键与持久化契约；`test_auth.py`（15 个）覆盖哈希/验证/登入/明文升级路径（假 client，无网络）。
+- **运行**：`uv run pytest tests/ -v`（161 个测试，全部通过）。
+- **覆盖**：`test_data_retrieval.py`（73 个）覆盖 `src/data_retrieval.py` 与 `src/storage.py` 的纯函数、数据完整性、课程键与持久化契约；`test_course_import.py`（71 个）覆盖 `src/course_import.py` 离线管线（学期归一化、LLM 回复解析、规范化、预览构建、确认写入，假 OpenAI client + monkeypatch 存储）；`test_auth.py`（17 个）覆盖哈希/验证/登入/明文升级/未知用户/用户名 strip（注册与登入两侧对称）路径（假 client，无网络）。注意 auth 测试的假 client 刻意**没有** `maybe_single` 方法——`signin` 不得使用它（postgrest 2.x 该 builder 在 0 行时返回裸 `None`，曾导致生产 `AttributeError`）。
 - **缺口**：`app/*`、`main.py`、`src/pdf_generator.py`、`src/word_generator.py`、学分上限规则零测试；`FileMissingError`/`DataFormatError` 错误路径未测。添加覆盖率时遵循现有 fixture 模式（类级 `context = load_all_data()` 或 monkeypatch 假 client）。
