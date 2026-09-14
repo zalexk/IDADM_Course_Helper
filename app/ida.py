@@ -63,6 +63,10 @@ def ui(context : CourseDataContext, major_2 : str) -> None:
     st.info("""Requirement: 6-15 units from Group A + 12-21 units from Group B
 
 At least 12 units level 3000+ (including 6 units level 4000+)
+
+The recognized course level is based on the level of the course listed in the [official study scheme](https://rgsntl.rgs.cuhk.edu.hk/aqs_prd_applx/Public/tt_dsp_acad_prog.aspx).
+
+For example, if the course in the study scheme is Level 3 and the equivalent course is Level 4, it will still be recognized as a Level 3 course, regardless of the level of the equivalence course you take.
 """)
 
     for group in ("A", "B"):
