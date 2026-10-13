@@ -58,12 +58,15 @@ if __name__ == "__main__":
             st.caption("** This is unofficial. Please be aware that there may be mistakes.")
             st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
             st.caption("If you encounter any bugs, please contact me via [email](mailto:alex-zsk@link.cuhk.edu.hk) or [GitHub Issues](https://github.com/zalexk/IDADM_Course_Helper/issues).")
+        
             
         with changelog:
             with st.expander("Read what’s new `v1.1`"):
                 st.markdown("**`v1.1`:** Support to import courses, Add courses for Chinese Language and English Language")
                 st.markdown("**`v1.0`:** Support login function to save your input")
 
+        st.warning("The official substitute course list is updated and it does not synced yet. There may be discrepancy between official document. Please check the [official website](https://www.cdmp.cuhk.edu.hk/documents/IDA_SEA-Course%20list_CUHK_2025-26.pdf). We would update it as soon as possible.")
+        
         ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(
             [
                 "University Core", 
