@@ -65,7 +65,7 @@ if __name__ == "__main__":
                 st.markdown("**`v1.1`:** Support to import courses, Add courses for Chinese Language and English Language")
                 st.markdown("**`v1.0`:** Support login function to save your input")
 
-        st.warning("The official substitute course list is updated ([changelog is here]((https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone))) and it does not synced yet. There may be discrepancy between official document. Please check the [official website](https://www.cdmp.cuhk.edu.hk/documents/IDA_SEA-Course%20list_CUHK_2025-26.pdf). We would update it ASAP.")
+        st.warning("The official substitute course list is updated ([See the change](https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone)) and it does not synced yet. There may be discrepancy between official document. Please check the [official website](https://www.cdmp.cuhk.edu.hk/documents/IDA_SEA-Course%20list_CUHK_2025-26.pdf). We would update it ASAP.")
 
         
         ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(
