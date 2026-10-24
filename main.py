@@ -54,7 +54,7 @@ if __name__ == "__main__":
     if major_2nd: # Display only when 2nd major is selected
         caption, changelog = st.columns(2)
         with caption:
-            st.caption("\\* Data updated as of 17 Aug 2026 ([See the changes](https://idadm.notion.site/study-scheme-change?source=copy_link))")
+            st.caption("\\* Data updated as of 19 Oct 2026 ([See the changes](https://idadm.notion.site/study-scheme-change))")
             st.caption("** This is unofficial. Please be aware that there may be mistakes.")
             st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
             st.caption("If you encounter any bugs, please contact me via [email](mailto:alex-zsk@link.cuhk.edu.hk) or [GitHub Issues](https://github.com/zalexk/IDADM_Course_Helper/issues).")
