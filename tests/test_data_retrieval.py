@@ -914,3 +914,61 @@ class TestEnglishOnChange:
         monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
         storage.english_on_change("enkey4", self._catalogue_df())
         assert deletes == [("ELTU1001", "english")]
+
+
+class TestCatalogueKeyIntegrity:
+    """A catalogue row's canonical key (_course_key) becomes the study_plan
+    primary key, so it must be a real course id. A '/'-joined composite key
+    is a fake id that no single course can ever match — it has polluted
+    study_plan before (see docs/migration-20261024-equivalence-keys.md), so
+    new equivalence rows must never introduce one. Legacy composites —
+    CSV-side multi-course keys and two 'either/or' catalogue entries in
+    Information Engineering — are whitelisted until the data is restructured
+    into primary-mapping + aliases.
+    """
+
+    # 'A/B' with a space: CSV composite HK keys; without a space: literal
+    # either/or entries in major_course_list.json (Information Engineering).
+    LEGACY_COMPOSITE_KEYS = {
+        "CSCI3320/ MATH3320/ STAT4001",
+        "SEEM3580/ RMSC4007",
+        "IERG4004/FTEC4004",
+        "IERG4130/CSCI4130",
+    }
+
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
+
+    @staticmethod
+    def _iter_courses(node):
+        if isinstance(node, str):
+            yield node
+        elif isinstance(node, dict):
+            for value in node.values():
+                yield from TestCatalogueKeyIntegrity._iter_courses(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from TestCatalogueKeyIntegrity._iter_courses(item)
+
+    def _catalogue_keys(self, context):
+        for major, sections in context.course_list.items():
+            for cid in self._iter_courses(sections):
+                yield major, cid, _course_key(context, major, cid)
+
+    def test_no_new_composite_keys(self, context):
+        offenders = {
+            (major, cid, key)
+            for major, cid, key in self._catalogue_keys(context)
+            if "/" in key and key not in self.LEGACY_COMPOSITE_KEYS
+        }
+        assert not offenders
+
+    def test_every_key_resolves_to_course_info(self, context):
+        offenders = []
+        for major, cid, key in self._catalogue_keys(context):
+            try:
+                get_course_info(context, key)
+            except InfoMissingError:
+                offenders.append((major, cid, key))
+        assert not offenders

@@ -34,7 +34,7 @@ main.py（轻量入口）→ app/（Streamlit UI）→ src/（数据 + 持久化
 | `src/` | 非 UI 层：`data_retrieval.py`（CSV/JSON 加载 + getter + 等价转换）、`storage.py`（Supabase 持久化，5 张表 `study_plan`/`pe`/`college_ge`/`four_area_ge`/`english`）、`auth.py`（Supabase 用户认证）、`pdf_generator.py` / `word_generator.py`（Planner 的导出功能） |
 | `data/` | 静态目录（视为只读输入）：`course_list.csv`（课程目录）、`major_course_list.json`（按专业分组）、`equivalence_courses.csv`（HK↔SZ 映射）、`2nd_major_credit_requirement.json` |
 | `tests/` | pytest 测试：`test_data_retrieval.py`、`test_auth.py`、`conftest.py`（stub supabase、隔离 session_state） |
-| `docs/` | `user_guide.md`、`assets/` 截图 |
+| `docs/` | `user_guide.md`、`migration-20261024-equivalence-keys.md`（study_plan 主键迁移 runbook）、`assets/` 截图 |
 | `.github/workflows/` | CI（`test.yml`，uv + Python 3.14） |
 
 ## 开发命令
@@ -50,6 +50,7 @@ docker compose up -d --build     # 容器部署（需要 .streamlit/secrets.toml
 
 ## 代码规范与常见模式
 
+- **等价课程数据口径**：`data/equivalence_courses.csv` 采用「单一代表课程」策略——多对一/一对多映射只保留一个 HK 代表码（honours 备选如 `MAT1011`/`MAT1012`/`STA2002H` 有意不入库）；**禁止用 `/` 拼接复合课程码充当 HK key**（`tests/test_data_retrieval.py::TestCatalogueKeyIntegrity` 强制校验，仅两例历史遗留白名单待清理）。目录表主键 = `_course_key()`（SZ 码有等价映射时规整为 HK 码），因此**任何会改变 canonical key 的 CSV 变更都必须同步 `study_plan` 存量数据迁移**——先 UPDATE 数据库、随即部署新版（顺序不可颠倒，见 `docs/migration-20261024-equivalence-keys.md`）。
 - **命名**：函数/参数用 `snake_case`，模块常量用 `ALL_CAPS`（`MAJOR_LIST`、`STUDY_CAMPUS`），类/异常用 `CamelCase`。注意现有风格使用非 PEP8 注解间距 `name : Type`——请匹配周围代码。
 - **类型**：处处显式注解；校区用 `Literal['hk', 'sz']`；不可变上下文对象用 frozen `@dataclass`。
 - **错误处理**：按模块的异常层级——`DataLoadError` 基类下有 `FileMissingError`、`DataFormatError`、`InfoMissingError`（`src/data_retrieval.py`）；`AuthServiceError`（`src/auth.py`）。应用捕获数据层错误并映射为 `st.error` + `st.stop()`。

@@ -123,12 +123,14 @@ Statistics (CUHK),STAT4011,Statistics Projects,STA4050,Statistical Capstone
 Statistics (CUHK),STAT4012,Statistical Principles of Deep Learning with Business Applications,DDA4220,Deep Learning and Applications
 Financial Engineering,CSCI2100,Data Structures,CSC3100,Data Structures
 Financial Engineering,CSCI3150,Introduction to Operating Systems,CSC3150,Operating System
+Financial Engineering,CSCI3170,Introduction to Database Systems,CSC3170,Introduction to Database Systems
 Financial Engineering,CSCI3230,Fundamentals of Artificial Intelligence,CSC3180,Fundamentals of Artificial Intelligence
 Financial Engineering,STAT4001,Data Mining and Statistical Learning,DDA3020,Machine Learning
 Financial Engineering,IERG4130,Introduction to Cyber Security,ECE4007,Computer and Network Security
 Financial Engineering,IERG4300,Web-scale Information Analytics,ERG3020,Web Analytics and Intelligence
 Financial Engineering,FINA2010,Financial Management,FIN2010,Financial Management
 Financial Engineering,FINA3080,Investment Analysis and Portfolio Management,FIN3080,Investment Analysis and Portfolio Management
+Financial Engineering,SEEM2520,Fundamentals in Financial Engineering,FIN3210,FinTech Theory and Practice
 Financial Engineering,FINA3010,Financial Markets,FIN4060,Financial Markets in China and the World
 Financial Engineering,FINA4400,Behavioral Finance,FIN4080,Behavioral Finance
 Financial Engineering,FINA4110,Options and Futures,FIN4110,Options and Futures
@@ -163,6 +165,7 @@ Computer Science and Engineering,CSCI1530,Computer Principles and Java Programmi
 Computer Science and Engineering,CSCI1120,Introduction to Computing Using C++,CSC3002,C/C++ Programming
 Computer Science and Engineering,AIST3020,Introduction to Computer Systems,CSC3050,Computer Architecture
 Computer Science and Engineering,CSCI3150,Introduction to Operating Systems,CSC3150,Operating System
+Computer Science and Engineering,CSCI3170,Introduction to Database Systems,CSC3170,Introduction to Database Systems
 Computer Science and Engineering,CSCI3230,Fundamentals of Artificial Intelligence,CSC3180,Fundamentals of Artificial Intelligence
 Computer Science and Engineering,SEEM4570,System Design and Implementation,CSC3185,Introduction to Multimedia Systems
 Computer Science and Engineering,CSCI4160,Distributed and Parallel Computing,CSC4005,Parallel Programming
@@ -179,7 +182,7 @@ Electrical and Computer Engineering,CSCI1120,Introduction to Computing Using C++
 Electrical and Computer Engineering,CSCI2100,Data Structure,CSC3100,Data Structures
 Electrical and Computer Engineering,CSCI3150,Introduction to Operating Systems,CSC3150,Operating Systems
 Electrical and Computer Engineering,CSCI3230,Fundamentals of Artificial Intelligence,CSC3180/ ECE4010,Fundamentals of Artificial Intelligence/ Machine Intelligence and Applications
-Electrical and Computer Engineering,IERG3080,Information and Software Engineering Practice,CSC4001,Software Engineering
+Electrical and Computer Engineering,CSCI3100,Software Engineering,CSC4001,Software Engineering
 Electrical and Computer Engineering,CSCI4160,Distributed and Parallel Computing,CSC4005,Parallel Programming
 Electrical and Computer Engineering,CSCI3320,Fundamentals of Machine Learning,DDA3020,Machine Learning
 Electrical and Computer Engineering,IERG1810,Electronic Circuit Design Laboratory,ECE1810,Electronic Circuit Design Laboratory
@@ -211,6 +214,7 @@ Mathematics and Applied Mathematics,MATH2050,Mathematical Analysis I,MAT2050,Mat
 Mathematics and Applied Mathematics,MATH4050,Real Analysis,MAT3006,Real Analysis
 Mathematics and Applied Mathematics,MATH3215,Operations Research,MAT3007,Optimization
 Mathematics and Applied Mathematics,MATH2040,Linear Algebra II,MAT3040,Advanced Linear Algebra
+Mathematics and Applied Mathematics,MATH4230,Optimization Theory,MAT3220,Optimization II
 Mathematics and Applied Mathematics,MATH2230,Complex Variables with Applications,MAT3253,Complex Variables
 Mathematics and Applied Mathematics,MATH3280,Introductory Probability,MAT3280,Probability Theory
 Mathematics and Applied Mathematics,MATH3290,Mathematical Modeling,MAT3300,Mathematical Modeling
@@ -223,6 +227,7 @@ Mathematics and Applied Mathematics,MATH4400,Project,MAT4400,Project
 Mathematics and Applied Mathematics,MATH4240,Stochastic Processes,STA4001,Stochastic Processes
 Statistics (CUHK(SZ)),CSCI1120,Introduction to Computing Using C++,CSC3002,C/C++ Programming
 Statistics (CUHK(SZ)),CSCI2100,Data Structures,CSC3100,Data Structures
+Statistics (CUHK(SZ)),CSCI3170,Introduction to Database Systems,CSC3170,Introduction to Database Systems
 Statistics (CUHK(SZ)),CSCI3160,Design and Analysis of Algorithms,CSC4120,Design and Analysis of Algorithms
 Statistics (CUHK(SZ)),STAT3006,Statistical Computing,DDA4002,Stochastic Simulation
 Statistics (CUHK(SZ)),STAT4010,Bayesian Learning,DDA4010,Bayesian Statistics
@@ -232,10 +237,12 @@ Statistics (CUHK(SZ)),CSC14250,Online Algorithms for Machine Learning and Optimi
 Statistics (CUHK(SZ)),STAT4012,Statistical Principles of Deep Learning with Business Applications,DDA4250,Mathematical Introduction to Deep Learning
 Statistics (CUHK(SZ)),ELEG2201,Digital Circuits and Computing System,ECE2050,Digital Logic and Systems
 Statistics (CUHK(SZ)),MATH2010,Advanced Calculus I,MAT1002,Calculus II
+Statistics (CUHK(SZ)),MATH3270,Ordinary Differential Equations,MAT2002,Ordinary Differential Equations
 Statistics (CUHK(SZ)),MATH2050,Mathematical Analysis I,MAT2050,Mathematical Analysis
 Statistics (CUHK(SZ)),MATH4050,Real Analysis,MAT3006,Real Analysis
 Statistics (CUHK(SZ)),MATH2040,Linear Algebra II,MAT3040,Advanced Linear Algebra
 Statistics (CUHK(SZ)),MATH3280,Introductory Probability,MAT3280,Probability Theory
+Statistics (CUHK(SZ)),MATH4230,Optimization Theory,MAT3220,Optimization II
 Statistics (CUHK(SZ)),RMSC4001,Simulation Methods for Risk Management Science and Finance,RMS4001,Simulation Methods for Risk Management and Finance
 Statistics (CUHK(SZ)),RMSC4005,Stochastic Calculus for Finance and Risk,RMS4050,Stochastic Calculus for Finance and Risk
 Statistics (CUHK(SZ)),SEEM3580/ RMSC4007,Risk Analysis for Financial Engineering/ Risk Management with Derivatives Concepts,RMS4060,Risk Management with Derivatives
