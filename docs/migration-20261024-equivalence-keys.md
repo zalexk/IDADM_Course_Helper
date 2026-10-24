@@ -40,9 +40,11 @@ SELECT * FROM study_plan
 WHERE course_id IN ('CSCI3170', 'SEEM2520')
   AND id IN (SELECT id FROM study_plan WHERE course_id IN ('CSC3170', 'FIN3210'));
 
--- 3. 其他迁移面代码复核：预期每个代码 0 行
---    （最后两个是 major_course_list.json 里 Information Engineering 的历史
---     「二选一」复合目录项，与本次迁移无关；若非 0 属遗留存量，记录待后续清理）
+-- 3. 其他迁移面代码复核：预期每个代码 0 行（CSCI3100 除外）
+--    （CSCI3100 行来自 IDA 选修表保存的 CSC4001——IDA 一直有该映射，属正常
+--     数据，不是本迁移的目标键、无冲突；最后两个是 major_course_list.json
+--     里 Information Engineering 的历史「二选一」复合目录项，与本次迁移无关，
+--     若非 0 属遗留存量，记录待后续清理）
 SELECT course_id, count(*) FROM study_plan
 WHERE course_id IN ('MAT2002', 'MAT3220', 'MATH3270', 'MATH4230',
                     'CSC4001', 'IERG3080', 'CSCI3100',
@@ -89,7 +91,7 @@ SELECT course_id, count(*) FROM study_plan
 WHERE course_id IN ('CSC3170', 'FIN3210', 'CSCI3170', 'SEEM2520')
 GROUP BY course_id;
 
--- 预期：与迁移前相同（本次审计基线 297）
+-- 预期：与迁移前相同（2026-10-25 执行前复核基线为 310）
 SELECT count(*) FROM study_plan;
 ```
 
