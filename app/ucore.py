@@ -9,6 +9,7 @@ from src.storage import (
     college_ge_on_change,
     four_area_on_change,
     english_on_change,
+    other_courses_on_change,
     fetch_data,
 )
 
@@ -21,6 +22,7 @@ def _user_input_section(
     default_rows : int,
     default_credits : int,
     dynamic : bool,
+    caption : str | None = None,
 ) -> None:
     """Build a user-input course table (no catalogue; identity = typed CUHK code).
 
@@ -28,6 +30,8 @@ def _user_input_section(
     each other or with catalogue rows. `dynamic` controls num_rows.
     """
     st.header(header)
+    if caption:
+        st.caption(caption)
 
     user_id = st.session_state.get("user_id")
     if user_id:
@@ -213,4 +217,13 @@ def ui(context : CourseDataContext, major_2 : str):
     _user_input_section(
         "Four Area of GE", "ucore-four-area-ge", four_area_on_change,
         table_name="four_area_ge", default_rows=1, default_credits=3, dynamic=True,
+    )
+    _user_input_section(
+        "Other Courses", "ucore-other", other_courses_on_change,
+        table_name="other_courses", default_rows=1, default_credits=3, dynamic=True,
+        caption=(
+            "Courses you plan to take outside the study scheme. They count "
+            "towards your semester credit load and total credits, but not "
+            "towards any graduation requirement."
+        ),
     )

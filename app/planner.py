@@ -65,7 +65,7 @@ def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
     target campus.
     """
     target = "hk" if campus == "CUHK" else "sz"
-    # Saved rows (PE / College GE / Four Area / imported) may carry codes
+    # Saved rows (PE / College GE / Four Area / Other / imported) may carry codes
     # that don't satisfy determine_campus's 7-char rule. Don't let a bad id
     # crash the whole Planner tab — fall back to the raw id.
     try:
@@ -108,11 +108,11 @@ def _build_course_table(context : CourseDataContext, all_rows : list[dict]) -> p
 
     Display id/title: each course is shown as offered at the campus of its
     study period (STUDY_CAMPUS), converted via equivalence when possible.
-    Credits: input-table rows (pe/college_ge/four_area_ge) use the DB-stored
-    user-typed value; catalogue rows (study_plan, no credits column) use the
-    catalogue credit.
+    Credits: input-table rows (pe/college_ge/four_area_ge/other_courses) use
+    the DB-stored user-typed value; catalogue rows (study_plan, no credits
+    column) use the catalogue credit.
     """
-    INPUT_SOURCES = {"pe", "college_ge", "four_area_ge"}
+    INPUT_SOURCES = {"pe", "college_ge", "four_area_ge", "other_courses"}
     records = []
     for row in all_rows:
         cid = row["course_id"]
@@ -338,7 +338,7 @@ def _requirement_view(
 
     planned_ids = {r["course_id"] for r in all_rows}
     total_credits = sum(
-        _row_credits(r) if r.get("source") in {"pe", "college_ge", "four_area_ge"}
+        _row_credits(r) if r.get("source") in {"pe", "college_ge", "four_area_ge", "other_courses"}
         else _credits(context, r["course_id"])
         for r in all_rows
     )

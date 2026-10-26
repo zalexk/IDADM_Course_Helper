@@ -455,6 +455,16 @@ class TestChineseLanguageCatalogue:
         assert "chinese" not in {r["source"] for r in rows}
         assert "chinese" not in {r["course_id"] for r in rows}
 
+    def test_fetch_all_planned_includes_other_courses(self, monkeypatch):
+        import src.storage as storage
+        monkeypatch.setattr(
+            storage, "fetch_data",
+            lambda user_id, table_name="study_plan":
+                [{"id": user_id, "course_id": f"{table_name}-x", "study_period": None}],
+        )
+        rows = storage.fetch_all_planned("u")
+        assert "other_courses" in {r["source"] for r in rows}
+
 
 class TestUserInputOnChange:
     """user_input_on_change + per-section wrappers: identity = typed CUHK cell,
@@ -654,6 +664,23 @@ class TestUserInputRouting:
         storage.four_area_on_change("fakey", df)
         assert upserts[0][0]["course_id"] == "UGFN1001"
         assert upserts[0][1] == "four_area_ge"
+
+    def test_other_courses_routes_to_own_table(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["ockey"] = {
+            "edited_rows": {"0": {"CUHK": "ANAT2020", "Study Period": "Year 3 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [3], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.other_courses_on_change("ockey", df)
+        assert upserts[0][0]["course_id"] == "ANAT2020"
+        assert upserts[0][1] == "other_courses"
 
 
 class TestUserInputDynamic:

@@ -61,9 +61,10 @@ if __name__ == "__main__":
         
             
         with changelog:
-            with st.expander("Read what’s new `v1.1.1`"):
+            with st.expander("Read what’s new `v1.2.0`"):
+                st.markdown("**`v1.2.0`:** Support to plan the courses out of the curriculum")
                 st.markdown("**`v1.1.1`:** Update the latest substitute course list")
-                st.markdown("**`v1.1`:** Support to import courses, Add courses for Chinese Language and English Language")
+                st.markdown("**`v1.1`:** Support course import function; Add courses for Chinese Language and English Language")
                 st.markdown("**`v1.0`:** Support login function to save your input")
 
         st.caption("The official substitute course list is updated ([See the change](https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone)). The website has already updated.")

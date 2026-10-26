@@ -203,6 +203,11 @@ def four_area_on_change(key: str, df: pd.DataFrame) -> None:
     user_input_on_change(key, df, table_name="four_area_ge")
 
 
+def other_courses_on_change(key: str, df: pd.DataFrame) -> None:
+    """Other Courses (dynamic, outside the study scheme) → 'other_courses' table."""
+    user_input_on_change(key, df, table_name="other_courses")
+
+
 
 
 def english_on_change(key: str, df: pd.DataFrame) -> None:
@@ -288,7 +293,7 @@ def fetch_all_planned(user_id : str) -> list[dict]:
     'source' key identifying the originating table.
     """
     result : list[dict] = []
-    for table in ("study_plan", "pe", "college_ge", "four_area_ge", "english"):
+    for table in ("study_plan", "pe", "college_ge", "four_area_ge", "english", "other_courses"):
         for row in fetch_data(user_id, table):
             entry = dict(row)
             entry["source"] = table

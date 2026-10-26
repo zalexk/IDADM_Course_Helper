@@ -18,6 +18,30 @@ import pandas as pd
 from app.constant import STUDY_CAMPUS
 
 
+# fpdf2's built-in fonts encode latin-1 only. Course titles use typographic
+# punctuation (en/em dashes, curly quotes); without a mapping any such title
+# makes the whole export fail with FPDFUnicodeEncodingException.
+_PDF_CHAR_MAP : dict[str, str] = {
+    "\u2013" : "-",    # en dash
+    "\u2014" : "-",    # em dash
+    "\u2018" : "'",    # curly single quotes
+    "\u2019" : "'",
+    "\u201c" : '"',    # curly double quotes
+    "\u201d" : '"',
+    "\u2026" : "...",
+    "\u2022" : "-",    # bullet
+    "\u2212" : "-",    # minus sign
+    "\u00a0" : " ",    # non-breaking space
+}
+_PDF_TRANSLATION = str.maketrans(_PDF_CHAR_MAP)
+
+
+def _pdf_safe(text) -> str:
+    """Transcode text for the built-in latin-1 fonts; unmapped chars become '?'."""
+    translated = str(text).translate(_PDF_TRANSLATION)
+    return translated.encode("latin-1", errors="replace").decode("latin-1")
+
+
 def _format_now(user_tz : str | None) -> str:
     """Return "YYYY-MM-DD HH:MM" in the user's tz, UTC if unknown/invalid.
 
@@ -60,7 +84,7 @@ def generate_study_plan_pdf(study_plan_df : pd.DataFrame, major_2_name : str, *,
     pdf.add_page()
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 10, f"Second Major: {major_2_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, _pdf_safe(f"Second Major: {major_2_name}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(5)
 
     for year in range(1, 5):
@@ -103,7 +127,7 @@ def generate_study_plan_pdf(study_plan_df : pd.DataFrame, major_2_name : str, *,
 
                     for _, data_row in display_df.iterrows():
                         row = table.row()
-                        row.cell(str(data_row["Course"]))
+                        row.cell(_pdf_safe(data_row["Course"]))
                         row.cell(str(data_row["Credits"]))
 
                 period_credits = int(period_df["Credits"].sum())
