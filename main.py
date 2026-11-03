@@ -33,6 +33,26 @@ if __name__ == "__main__":
             login.guest_edits_notice()
         with st.sidebar:
             login.ui()
+            
+    caption, changelog = st.columns(2)
+    with caption:
+        st.caption("\\* Data updated as of 19 Oct 2026 ([See the changes](https://idadm.notion.site/study-scheme-change))")
+        st.caption("** This is unofficial. Please be aware that there may be mistakes.")
+        st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
+        st.caption("If you encounter any bugs, please contact me via [email](mailto:alex-zsk@link.cuhk.edu.hk) or [GitHub Issues](https://github.com/zalexk/IDADM_Course_Helper/issues).")
+    
+        
+    with changelog:
+        with st.expander("Read what’s new `v1.2.0`"):
+            st.markdown("**`v1.2.0`:** Support to plan the courses out of the curriculum")
+            st.markdown("**`v1.1.1`:** Update the latest substitute course list")
+            st.markdown("**`v1.1`:** Support course import function; Add courses for Chinese Language and English Language")
+            st.markdown("**`v1.0`:** Support login function to save your input")
+
+        st.warning("The revisions to General Education has not updated in the website. The detailed arrangement is summarized at [here](https://idadm.notion.site/Revision-to-General-Education-40d0912b765c804f9126eaa7d0555c84?source=copy_link).")
+        st.caption("The official substitute course list is updated ([See the change](https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone)). The website has already updated.")
+        
+            
     major_2nd = st.selectbox(
         "2nd Major",
         constant.MAJOR_2nd_list,
@@ -52,22 +72,7 @@ if __name__ == "__main__":
         st.stop()
 
     if major_2nd: # Display only when 2nd major is selected
-        caption, changelog = st.columns(2)
-        with caption:
-            st.caption("\\* Data updated as of 19 Oct 2026 ([See the changes](https://idadm.notion.site/study-scheme-change))")
-            st.caption("** This is unofficial. Please be aware that there may be mistakes.")
-            st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
-            st.caption("If you encounter any bugs, please contact me via [email](mailto:alex-zsk@link.cuhk.edu.hk) or [GitHub Issues](https://github.com/zalexk/IDADM_Course_Helper/issues).")
         
-            
-        with changelog:
-            with st.expander("Read what’s new `v1.2.0`"):
-                st.markdown("**`v1.2.0`:** Support to plan the courses out of the curriculum")
-                st.markdown("**`v1.1.1`:** Update the latest substitute course list")
-                st.markdown("**`v1.1`:** Support course import function; Add courses for Chinese Language and English Language")
-                st.markdown("**`v1.0`:** Support login function to save your input")
-
-        st.caption("The official substitute course list is updated ([See the change](https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone)). The website has already updated.")
 
         
         ucore_tab, major_1_tab, major_2_tab, planner_tab = st.tabs(
