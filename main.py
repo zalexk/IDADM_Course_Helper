@@ -19,10 +19,6 @@ if __name__ == "__main__":
     st.title("IDADM Course Helper (HK)")
     
     
-    st.link_button(
-        "使用指南 User Guide",
-        "https://idadm.notion.site/userguide"
-    )
     
     is_guest = "login_status" not in st.session_state or st.session_state["login_status"] is False
     if is_guest:
@@ -39,6 +35,10 @@ if __name__ == "__main__":
             
     caption, changelog = st.columns(2)
     with caption:
+        st.link_button(
+            "使用指南 User Guide",
+            "https://idadm.notion.site/userguide"
+        )
         st.caption("\\* Data updated as of 19 Oct 2026 ([See the changes](https://idadm.notion.site/study-scheme-change))")
         st.caption("** This is unofficial. Please be aware that there may be mistakes.")
         st.caption("*** It is applicable to students admitted in 2025/26 from CUHK ONLY.")
@@ -46,14 +46,15 @@ if __name__ == "__main__":
     
         
     with changelog:
-        with st.expander("Read what’s new `v1.2.0`"):
+        with st.expander("Read what’s new `v1.2.1`"):
+            st.markdown("**`v1.2.1`:** Update the revised UCore GE graduation requirement")
             st.markdown("**`v1.2.0`:** Support to plan the courses out of the curriculum")
             st.markdown("**`v1.1.1`:** Update the latest substitute course list")
             st.markdown("**`v1.1`:** Support course import function; Add courses for Chinese Language and English Language")
             st.markdown("**`v1.0`:** Support login function to save your input")
 
-        st.warning("The revisions to General Education has not updated in the website. The detailed arrangement is summarized at [here](https://idadm.notion.site/Revision-to-General-Education-40d0912b765c804f9126eaa7d0555c84?source=copy_link).")
-        st.caption("The official substitute course list is updated ([See the change](https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone)). The website has already updated.")
+        st.caption("The revisions to General Education have already been updated on the website. The detailed arrangement is summarized [here](https://idadm.notion.site/Revision-to-General-Education-40d0912b765c804f9126eaa7d0555c84?source=copy_link).")
+        st.caption("The official substitute course list has already been updated ([See the change](https://cuhk-course-equivalence-ry7ev48ni8s.qoder.zone)). The website has already been updated.")
         
             
     major_2nd = st.selectbox(
