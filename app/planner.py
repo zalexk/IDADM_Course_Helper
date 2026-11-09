@@ -113,6 +113,22 @@ def _foundation_credits(context : CourseDataContext, all_rows : list[dict]) -> t
     return planned, makeup
 
 
+def _foundation_taken_credits(context : CourseDataContext, all_rows : list[dict]) -> int:
+    """Foundation units planned toward the 6-unit requirement.
+
+    Per side only the largest planned version counts (UGFH1000 / UGFN1000 are
+    3 units, UGFH1002 / UGFN1002 are 2).  This is the "credits planned" figure
+    shown in the Planner table, not the requirement or the make-up amount.
+    """
+    taken = {r["course_id"] for r in all_rows if r.get("source") == "study_plan"}
+    total = 0
+    for side in _FOUNDATION_SIDES:
+        present = [cid for cid in side if cid in taken]
+        if present:
+            total += max(_credits(context, cid) for cid in present)
+    return total
+
+
 def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
     """Course id as offered at `campus` ('CUHK'/'CUHKSZ'); original if no equivalent.
 
@@ -250,8 +266,8 @@ def _year_view(all_courses : pd.DataFrame, year : int) -> None:
 
 # ---------- requirement computation ----------
 
-def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[str, bool]:
-    """Check University Core requirements from saved data."""
+def _compute_ucore_detail(context : CourseDataContext, all_rows : list[dict]) -> dict[str, list]:
+    """University Core progress: one [fulfilled, credits] pair per item."""
     req = GRADUATION_REQUIREMENT["University Core"]
     ucore_list = get_course_list(context, "University Core")["Required Courses"]
     planned_ucore = {_course_key(context, "University Core", c) for c in ucore_list}
@@ -263,15 +279,22 @@ def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[s
     # Transitional GE rules: the UGEA1555 special option and the 2-unit
     # Foundation courses (1002) that are topped up by extra Four-Area units.
     foundation_planned, foundation_makeup = _foundation_credits(context, all_rows)
+    foundation_credits = _foundation_taken_credits(context, all_rows)
     china_units, ugea_area_credits = _ge_china_credits(all_rows)
 
-    status : dict[str, bool] = {}
+    status : dict[str, list] = {}
 
     # Specific course checks (all HK courses, canonical key = self)
-    status["GE: Foundation Courses"] = foundation_planned
-    status["Understanding China"] = china_units >= req["Understanding China"]
-    status["Hong Kong in the Wider Constitutional Order"] = "UGCP1002" in planned_ucore
-    status["Digital Literacy and Computational Thinking"] = "ENGG1003" in planned_ucore
+    status["GE: Foundation Courses"] = [foundation_planned, foundation_credits]
+    status["Understanding China"] = [china_units >= req["Understanding China"], china_units]
+    status["Hong Kong in the Wider Constitutional Order"] = [
+        "UGCP1002" in planned_ucore,
+        _credits(context, "UGCP1002") if "UGCP1002" in planned_ucore else 0,
+    ]
+    status["Digital Literacy and Computational Thinking"] = [
+        "ENGG1003" in planned_ucore,
+        _credits(context, "ENGG1003") if "ENGG1003" in planned_ucore else 0,
+    ]
 
     # Credit-based from user-input tables (credits = user-typed value in DB)
     pe_credits = sum(_row_credits(r) for r in all_rows if r.get("source") == "pe")
@@ -295,16 +318,22 @@ def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[s
         if r.get("source") == "english"
     )
 
-    status["Physical Education"] = pe_credits >= req["Physical Education"]
-    status["College GE"] = college_ge_credits >= req["College GE"]
-    status["GE: Four Areas (Area A, C, D)"] = (
+    status["Physical Education"] = [pe_credits >= req["Physical Education"], pe_credits]
+    status["College GE"] = [college_ge_credits >= req["College GE"], college_ge_credits]
+    status["GE: Four Areas (Area A, C, D)"] = [
         four_area_credits + ugea_area_credits
-        >= req["GE: Four Areas (Area A, C, D)"] + foundation_makeup
-    )
-    status["Chinese Language"] = chinese_credits >= req["Chinese Language"]
-    status["English Language"] = english_credits >= req["English Language"]
+        >= req["GE: Four Areas (Area A, C, D)"] + foundation_makeup,
+        four_area_credits + ugea_area_credits,
+    ]
+    status["Chinese Language"] = [chinese_credits >= req["Chinese Language"], chinese_credits]
+    status["English Language"] = [english_credits >= req["English Language"], english_credits]
 
     return status
+
+
+def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[str, bool]:
+    """Check University Core requirements from saved data."""
+    return {item: value[0] for item, value in _compute_ucore_detail(context, all_rows).items()}
 
 
 def _compute_major_1(context : CourseDataContext, planned_ids : set[str], major_2 : str) -> dict[str, list]:
@@ -407,7 +436,7 @@ def _requirement_view(
         for r in all_rows
     )
 
-    ucore_status = _compute_ucore(context, all_rows)
+    ucore_detail = _compute_ucore_detail(context, all_rows)
     # The Foundation transition folds each 2-unit 1002 course's shortfall into
     # the Four-Area requirement; show the effective number so 6 credits is not
     # mistaken for "done".
@@ -429,7 +458,8 @@ def _requirement_view(
                     str(four_area_req) if item == four_area_label else str(v)
                     for item, v in ucore_req.items()
                 ],
-                "Fulfil": [ucore_status.get(item, False) for item in ucore_req],
+                "Credits": [ucore_detail.get(item, [False, 0])[1] for item in ucore_req],
+                "Fulfil": [ucore_detail.get(item, [False, 0])[0] for item in ucore_req],
             }),
             hide_index=True,
             height="content",

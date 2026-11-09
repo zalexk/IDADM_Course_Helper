@@ -131,7 +131,7 @@
 ### 畢業要求檢查 (Graduation Requirements)
 在 **"Graduation Requirements"** 子標籤頁 (Sub-Tab) 中，你可以直觀地看到：
 - 各個課程類別（University Core, 1st Major, 2nd Major）的學分 (Credits) 達成情況。
-- 每個要求項目的 **Requirement / Credits / Fulfil** 狀態，哪些要求已符合，哪些仍未足夠。
+- 每個要求項目的 **Requirement / Credits / Fulfil** 狀態（University Core 的 `Credits` 為已修/已排學分，不封頂；Foundation 的 2 學分版本缺口會反映在 Four Areas 的 Requirement 上），哪些要求已符合，哪些仍未足夠。
 - 頁面底部的 **Total Credit** 顯示總學分達成情況（目標 129 學分）。
 - **GE 修訂自動換算**：系統已按 GE 修訂計算——`UGEA1555` (Understanding Modern China) 在未修 `UGCP1001`/`UGCP1003` 時折算為 `UGCP1001`（1 學分）+ 2 學分四範圍通識，否則按 3 學分四範圍通識計；若修讀 2 學分的 `UGFH1002`/`UGFN1002`，Foundation 不足的學分會自動要求以四範圍通識補足（Four Areas 的 Requirement 會相應提高並顯示提示）。
 

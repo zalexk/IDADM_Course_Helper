@@ -8,7 +8,13 @@ supabase and binds st.secrets, and load_all_data() reads the real data/ files.
 
 import pytest
 
-from app.planner import _compute_ucore, _foundation_credits, _ge_china_credits
+from app.planner import (
+    _compute_ucore,
+    _compute_ucore_detail,
+    _foundation_credits,
+    _foundation_taken_credits,
+    _ge_china_credits,
+)
 from src.data_retrieval import load_all_data
 
 _FOUR_AREA = "GE: Four Areas (Area A, C, D)"
@@ -122,3 +128,74 @@ class TestComputeUcore:
     def test_missing_foundation_side_fails(self, context):
         status = _compute_ucore(context, _plan("UGFH1000"))
         assert status[_FOUNDATION] is False
+
+
+class TestUcoreCredits:
+    """Credits column of the University Core table (planned credits, not capped)."""
+
+    def test_foundation_credits_two_unit_pair(self, context):
+        detail = _compute_ucore_detail(context, _plan("UGFH1002", "UGFN1002"))
+        assert detail[_FOUNDATION] == [True, 4]
+
+    def test_foundation_credits_mixed_pair(self, context):
+        detail = _compute_ucore_detail(context, _plan("UGFH1000", "UGFN1002"))
+        assert detail[_FOUNDATION] == [True, 5]
+
+    def test_foundation_credits_three_unit_pair(self, context):
+        detail = _compute_ucore_detail(context, _plan("UGFH1000", "UGFN1000"))
+        assert detail[_FOUNDATION] == [True, 6]
+
+    def test_foundation_taken_credits_uses_largest_version_per_side(self, context):
+        rows = _plan("UGFH1000", "UGFH1002", "UGFN1002")
+        assert _foundation_taken_credits(context, rows) == 5  # 3 + 2
+
+    def test_chinese_credits(self, context):
+        detail = _compute_ucore_detail(context, _plan("CHLT1001", "CHLT1002"))
+        assert detail["Chinese Language"] == [True, 5]
+
+    def test_english_credits_are_uncapped(self, context):
+        rows = [
+            {"course_id": "ELTU1001", "source": "english", "credits": 0},
+            {"course_id": "ELTU2011", "source": "english", "credits": 0},
+            {"course_id": "ELTU2012", "source": "english", "credits": 0},
+        ]
+        detail = _compute_ucore_detail(context, rows)
+        assert detail["English Language"] == [True, 9]  # 3 + 3 + 3, above the 8-unit target
+
+    def test_ugea1555_credit_split(self, context):
+        detail = _compute_ucore_detail(context, _plan("UGEA1555"))
+        assert detail[_CHINA] == [True, 1]
+        assert detail[_FOUR_AREA] == [False, 2]
+
+    def test_ugea1555_area_credits_with_china_core(self, context):
+        detail = _compute_ucore_detail(context, _plan("UGCP1001", "UGEA1555"))
+        assert detail[_CHINA] == [True, 1]
+        assert detail[_FOUR_AREA] == [False, 3]
+
+    def test_input_table_credits(self, context):
+        rows = [
+            {"course_id": "PED1001", "source": "pe", "credits": 2},
+            {"course_id": "GEC1001", "source": "college_ge", "credits": 6},
+            _area(6),
+        ]
+        detail = _compute_ucore_detail(context, rows)
+        assert detail["Physical Education"] == [True, 2]
+        assert detail["College GE"] == [True, 6]
+        assert detail[_FOUR_AREA] == [True, 6]
+
+    def test_over_taken_input_credits_are_not_capped(self, context):
+        detail = _compute_ucore_detail(
+            context, [{"course_id": "PED1001", "source": "pe", "credits": 3}]
+        )
+        assert detail["Physical Education"] == [True, 3]
+
+    def test_catalogue_specific_course_credits(self, context):
+        detail = _compute_ucore_detail(context, _plan("UGCP1002", "ENGG1003"))
+        assert detail["Hong Kong in the Wider Constitutional Order"] == [True, 1]
+        assert detail["Digital Literacy and Computational Thinking"] == [True, 3]
+
+    def test_ucore_wrapper_matches_detail_flags(self, context):
+        rows = _plan("UGFH1002", "UGFN1002", "UGEA1555", "UGCP1002", "ENGG1003") + [_area(4)]
+        flags = _compute_ucore(context, rows)
+        detail = _compute_ucore_detail(context, rows)
+        assert flags == {item: value[0] for item, value in detail.items()}
