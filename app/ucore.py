@@ -215,13 +215,12 @@ def ui(context : CourseDataContext, major_2 : str):
         "College GE", "ucore-college-ge", college_ge_on_change,
         table_name="college_ge", default_rows=1, default_credits=3, dynamic=True,
     )
-    st.subheader("UGEA1555 (Understanding Modern China)")
+    st.subheader("UGEA1555 Understanding Modern China")
     st.caption(
-        "GE China Programme special option: counts as 3 units of Area A, or, "
-        "when UGCP1001 / UGCP1003 is not planned, as UGCP1001 (1 unit) plus "
-        "2 units of Area A. The Planner applies whichever option completes "
-        "the requirement."
+        "GE China Programme special option: counts as **3 units of Area A** OR as **UGCP1001 (1 unit) + 2 units of Area A** when UGCP1001 / UGCP1003 is not planned. "
     )
+    st.caption("The Planner applies whichever option completes the requirement.")
+    
     _catalogue_section(
         context, "University Core", "Four Areas of GE",
         "ucore-four-area-special", data_on_change,
