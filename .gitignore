@@ -24,6 +24,7 @@ supabase-ping.sh
 !.codex/hooks.json
 .omo/
 .workbuddy/
+.zcode/
 
 # GitHub issue mirror
 .prism/
