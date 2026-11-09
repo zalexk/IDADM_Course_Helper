@@ -57,6 +57,62 @@ def _row_credits(row : dict) -> int:
         return 0
 
 
+# GE China Programme: UGEA1555's "special option" counts it as 3 units of Area A,
+# or as UGCP1001 (1 unit) plus 2 units of Area A.  Read it as 3 Area-A units only
+# when the 1-unit China core course is already covered; otherwise the substitution
+# is the only way the University Core item can be fulfilled.
+_CHINA_CORE_CODES = {"UGCP1001", "UGCP1003"}
+_UGEA1555 = "UGEA1555"
+
+# GE Foundation Programme transition: from 2026/27 Term 2 the 3-unit UGFH1000 /
+# UGFN1000 are replaced by the 2-unit UGFH1002 / UGFN1002.  The missing unit is
+# made up with an extra UGE 4-area course, so the Four-Area requirement grows by
+# the shortfall of each side.
+_FOUNDATION_SIDES : tuple[tuple[str, ...], ...] = (
+    ("UGFH1000", "UGFH1002"),
+    ("UGFN1000", "UGFN1002"),
+)
+
+
+def _ge_china_credits(all_rows : list[dict]) -> tuple[int, int]:
+    """Resolve the UGEA1555 special option.
+
+    Returns (Understanding China units, additional Area A units).  A planned
+    UGCP1001/UGCP1003 counts 1 unit of Understanding China and UGEA1555 then
+    counts 3 units of Area A; without one, UGEA1555 stands in for UGCP1001
+    (1 unit) and contributes the remaining 2 units to Area A.
+    """
+    taken = {r["course_id"] for r in all_rows if r.get("source") == "study_plan"}
+    china_core = 1 if taken & _CHINA_CORE_CODES else 0
+    if _UGEA1555 not in taken:
+        return china_core, 0
+    if china_core:
+        return china_core, 3
+    return 1, 2
+
+
+def _foundation_credits(context : CourseDataContext, all_rows : list[dict]) -> tuple[bool, int]:
+    """Resolve the GE Foundation transition.
+
+    Returns (both Foundation courses planned, extra Four-Area units needed).
+    Each side (Humanity / Nature) requires 3 units; a 2-unit UGFH1002/UGFN1002
+    leaves a 1-unit shortfall that is made up by a UGE 4-area course.  A side
+    with no course planned is not substitutable - that course is still needed.
+    """
+    taken = {r["course_id"] for r in all_rows if r.get("source") == "study_plan"}
+    side_req = GRADUATION_REQUIREMENT["University Core"]["GE: Foundation Courses"] // len(_FOUNDATION_SIDES)
+    planned = True
+    makeup = 0
+    for side in _FOUNDATION_SIDES:
+        present = [cid for cid in side if cid in taken]
+        if not present:
+            planned = False
+            continue
+        side_units = max(_credits(context, cid) for cid in present)
+        makeup += max(0, side_req - side_units)
+    return planned, makeup
+
+
 def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
     """Course id as offered at `campus` ('CUHK'/'CUHKSZ'); original if no equivalent.
 
@@ -204,11 +260,16 @@ def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[s
     planned_ids = {r["course_id"] for r in all_rows}
     planned_ucore &= planned_ids
 
+    # Transitional GE rules: the UGEA1555 special option and the 2-unit
+    # Foundation courses (1002) that are topped up by extra Four-Area units.
+    foundation_planned, foundation_makeup = _foundation_credits(context, all_rows)
+    china_units, ugea_area_credits = _ge_china_credits(all_rows)
+
     status : dict[str, bool] = {}
 
     # Specific course checks (all HK courses, canonical key = self)
-    status["GE: Foundation Courses"] = {"UGFH1000", "UGFN1000"}.issubset(planned_ucore)
-    status["Understanding China"] = "UGCP1001" in planned_ucore
+    status["GE: Foundation Courses"] = foundation_planned
+    status["Understanding China"] = china_units >= req["Understanding China"]
     status["Hong Kong in the Wider Constitutional Order"] = "UGCP1002" in planned_ucore
     status["Digital Literacy and Computational Thinking"] = "ENGG1003" in planned_ucore
 
@@ -236,7 +297,10 @@ def _compute_ucore(context : CourseDataContext, all_rows : list[dict]) -> dict[s
 
     status["Physical Education"] = pe_credits >= req["Physical Education"]
     status["College GE"] = college_ge_credits >= req["College GE"]
-    status["GE: Four Areas (Area A, C, D)"] = four_area_credits >= req["GE: Four Areas (Area A, C, D)"]
+    status["GE: Four Areas (Area A, C, D)"] = (
+        four_area_credits + ugea_area_credits
+        >= req["GE: Four Areas (Area A, C, D)"] + foundation_makeup
+    )
     status["Chinese Language"] = chinese_credits >= req["Chinese Language"]
     status["English Language"] = english_credits >= req["English Language"]
 
@@ -344,6 +408,10 @@ def _requirement_view(
     )
 
     ucore_status = _compute_ucore(context, all_rows)
+    # The Foundation transition folds each 2-unit 1002 course's shortfall into
+    # the Four-Area requirement; show the effective number so 6 credits is not
+    # mistaken for "done".
+    _, foundation_makeup = _foundation_credits(context, all_rows)
     major1_status = _compute_major_1(context, planned_ids, major_2)
     major2_status = _compute_major_2(context, planned_ids, major_2)
 
@@ -352,15 +420,27 @@ def _requirement_view(
     with ucore_col:
         st.subheader("University Core")
         ucore_req = GRADUATION_REQUIREMENT["University Core"]
+        four_area_label = "GE: Four Areas (Area A, C, D)"
+        four_area_req = ucore_req[four_area_label] + foundation_makeup
         st.dataframe(
             pd.DataFrame({
                 "Item": list(ucore_req.keys()),
-                "Requirement": [str(v) for v in ucore_req.values()],
+                "Requirement": [
+                    str(four_area_req) if item == four_area_label else str(v)
+                    for item, v in ucore_req.items()
+                ],
                 "Fulfil": [ucore_status.get(item, False) for item in ucore_req],
             }),
             hide_index=True,
             height="content",
         )
+        if foundation_makeup:
+            st.caption(
+                "GE Foundation: UGFH1002 / UGFN1002 are 2-unit courses. The "
+                f"{foundation_makeup} missing Foundation unit(s) must be made up by "
+                "UGE 4-area course(s); the Four Areas requirement above already "
+                "includes that make-up."
+            )
 
     with major_col:
         st.subheader("1st Major (IDA)")

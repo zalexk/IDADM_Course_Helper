@@ -4,7 +4,10 @@ import src.data_retrieval as data
 
 
 @st.cache_data
-def load_cache_data() -> data.CourseDataContext:
+def load_cache_data(cache_version : int) -> data.CourseDataContext:
+    # cache_version is part of the @st.cache_data key (see
+    # constant.DATA_CACHE_VERSION): bump it when data/*.json changes so a
+    # running app does not keep serving a stale CourseDataContext.
     return data.load_all_data()
 
 if __name__ == "__main__":
@@ -61,7 +64,7 @@ if __name__ == "__main__":
     )
     
     try:
-        context = load_cache_data()
+        context = load_cache_data(constant.DATA_CACHE_VERSION)
         
     except data.FileMissingError as e:
         st.error(f"File Not Found: {e}")

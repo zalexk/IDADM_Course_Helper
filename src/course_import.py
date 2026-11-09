@@ -65,6 +65,10 @@ IMPORT_CATEGORIES : tuple[str, ...] = tuple(CATEGORY_TABLES)
 _SECTION_CATEGORY : tuple[tuple[str, str, str], ...] = (
     ("University Core: Chinese Language", "University Core", "Chinese Language"),
     ("University Core: GE Courses", "University Core", "Required Courses"),
+    # UGEA1555 has its own catalogue section (shown in the Four Areas block)
+    # but stays a study_plan row, so its import category must stay "GE
+    # Courses" instead of falling through to the UGA prefix rule.
+    ("University Core: GE Courses", "University Core", "Four Areas of GE"),
     ("IDA: Faculty Package", _IDA, "Faculty Package"),
     ("IDA: Required Courses", _IDA, "Required Courses"),
     ("IDA: COOP", _IDA, "COOP"),

@@ -16,6 +16,11 @@ MAJOR_LIST : tuple[str, ...] = (
 
 MAJOR_2nd_list = MAJOR_LIST[2:] 
 
+# Bump when data/*.json changes shape or meaning: main.load_cache_data takes it
+# as part of the @st.cache_data cache key, so a deploy never reuses stale data
+# from an earlier CourseDataContext.
+DATA_CACHE_VERSION : int = 2
+
 # Faculty whose English language requirement applies, per 2nd major.
 # Financial Engineering may fulfil ANY of the three faculties' requirements,
 # so its catalogue is the merge of all three lists.

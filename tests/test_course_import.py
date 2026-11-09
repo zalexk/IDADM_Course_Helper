@@ -392,6 +392,7 @@ class TestDefaultCategory:
         ("ENGG2440", "IDA: Required Courses"),   # must not be caught by ENG
         ("UGCP1001", "University Core: GE Courses"),   # must not be caught by UGC
         ("UGCP1002", "University Core: GE Courses"),   # must not be caught by UGC
+        ("UGEA1555", "University Core: GE Courses"),   # Four Areas section, study_plan row
         ("GEC1001", "University Core: Four Areas of GE"),  # SZ prefix still wins
         ("PED1201", "University Core: PE"),
         ("ZZZZ9999", "Other Courses"),          # unknown id

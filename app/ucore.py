@@ -193,6 +193,7 @@ def _catalogue_section(
 
 
 def ui(context : CourseDataContext, major_2 : str):
+    st.info('The summary of the revised General Education requirement is [here](https://idadm.notion.site/Revision-to-General-Education-40d0912b765c804f9126eaa7d0555c84?source=copy_link)')
     _catalogue_section(
         context, "University Core", "Required Courses",
         "ucore-compulsory", data_on_change,
@@ -213,6 +214,17 @@ def ui(context : CourseDataContext, major_2 : str):
     _user_input_section(
         "College GE", "ucore-college-ge", college_ge_on_change,
         table_name="college_ge", default_rows=1, default_credits=3, dynamic=True,
+    )
+    st.subheader("UGEA1555 (Understanding Modern China)")
+    st.caption(
+        "GE China Programme special option: counts as 3 units of Area A, or, "
+        "when UGCP1001 / UGCP1003 is not planned, as UGCP1001 (1 unit) plus "
+        "2 units of Area A. The Planner applies whichever option completes "
+        "the requirement."
+    )
+    _catalogue_section(
+        context, "University Core", "Four Areas of GE",
+        "ucore-four-area-special", data_on_change,
     )
     _user_input_section(
         "Four Area of GE", "ucore-four-area-ge", four_area_on_change,

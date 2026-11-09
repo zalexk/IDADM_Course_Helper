@@ -999,3 +999,28 @@ class TestCatalogueKeyIntegrity:
             except InfoMissingError:
                 offenders.append((major, cid, key))
         assert not offenders
+
+
+class TestGeRevisionCataloguePlacement:
+    """Revised-GE catalogue placement: UGEA1555 lives in its own Four Areas
+    section (OGE lists it under 4 Areas of GE -> New Courses) while the
+    Planner's special-option logic keeps treating it as a study_plan row."""
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def context(cls):
+        return load_all_data()
+
+    def test_ugea1555_in_four_areas_section(self, context):
+        ucore = get_course_list(context, "University Core")
+        assert "UGEA1555" in ucore["Four Areas of GE"]
+
+    def test_ugea1555_not_in_required_courses(self, context):
+        ucore = get_course_list(context, "University Core")
+        assert "UGEA1555" not in ucore["Required Courses"]
+
+    def test_foundation_transition_codes_stay_required(self, context):
+        ucore = get_course_list(context, "University Core")
+        assert {"UGFH1000", "UGFH1002", "UGFN1000", "UGFN1002"} <= set(
+            ucore["Required Courses"]
+        )

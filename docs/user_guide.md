@@ -50,7 +50,7 @@
 在 **"University Core"** 標籤頁 (Tab) 中：
 
 - **大學必修課目錄表**：系統已列出大學必修課程（如大學通識基礎課 UGFN1000 / UGFH1000、認識中國 UGCP1001、香港特區的憲制秩序 UGCP1002、數碼素養及計算思維 ENGG1003 等），你只需為每門課設定修讀學期。
-- **手動輸入區**：**體育 (Physical Education)**、**書院通識 (College GE)** 和**四範圍通識 (Four Area of GE)** 因課程繁多、難以列舉，需要自行填寫課程編號、學分 (Credits) 和修讀學期；**其他課程 (Other Courses)** 則用於填寫不在修讀方案 (study scheme) 內、但計劃修讀的課程——這些課程會計入學期學分負荷與總學分，但不會計入任何畢業要求項。
+- **手動輸入區**：**體育 (Physical Education)**、**書院通識 (College GE)** 和**四範圍通識 (Four Area of GE)** 因課程繁多、難以列舉，需要自行填寫課程編號、學分 (Credits) 和修讀學期；四範圍通識區另設 **UGEA1555 (Understanding Modern China)** 的目錄列（它與 UGCP1001 / UGCP1003 的二選一計法由 Planner 自動判斷）；**其他課程 (Other Courses)** 則用於填寫不在修讀方案 (study scheme) 內、但計劃修讀的課程——這些課程會計入學期學分負荷與總學分，但不會計入任何畢業要求項。
 - **中文 (Chinese Language) 目錄表**：系統已列出中文課程（如 CHLT1001 / CHLT1002 / CHLT1303 / CHLT1308），你可增刪課程並為每門課設定修讀學期。
 - **英文 (English Language) 目錄表**：系統會根據你選擇的**第二主修所屬學院**（工學院 Faculty of Engineering / 商學院 Faculty of Business Administration / 理學院 Faculty of Science），列出該學院合資格的英文課程（ELTU* 或對應的 ENG* 碼），你只需為每門課設定修讀學期。
 - 在 **"Study Period"** 列中，為每門課選擇你打算修讀的學期 (Semester)（例如：`Year 1 Sem 1`）。
@@ -133,10 +133,11 @@
 - 各個課程類別（University Core, 1st Major, 2nd Major）的學分 (Credits) 達成情況。
 - 每個要求項目的 **Requirement / Credits / Fulfil** 狀態，哪些要求已符合，哪些仍未足夠。
 - 頁面底部的 **Total Credit** 顯示總學分達成情況（目標 129 學分）。
+- **GE 修訂自動換算**：系統已按 GE 修訂計算——`UGEA1555` (Understanding Modern China) 在未修 `UGCP1001`/`UGCP1003` 時折算為 `UGCP1001`（1 學分）+ 2 學分四範圍通識，否則按 3 學分四範圍通識計；若修讀 2 學分的 `UGFH1002`/`UGFN1002`，Foundation 不足的學分會自動要求以四範圍通識補足（Four Areas 的 Requirement 會相應提高並顯示提示）。
 
 > [!IMPORTANT]
 >
-> **中文 (Chinese Language) 與英文 (English Language) 語文要求現已可由系統根據課程清單學分自動核算**，無須再自行判斷。其餘大學必修 (University Core) 類別仍請自行對照官方要求判斷。
+> **中文 (Chinese Language) 與英文 (English Language) 語文要求現已可由系統根據課程清單學分自動核算**，GE 修訂下的 `UGEA1555` 與 Foundation 過渡換算亦已自動處理。其餘大學必修 (University Core) 類別（如 PE / College GE / 四範圍通識的具體選課）仍請自行對照官方要求判斷。
 
 > [!IMPORTANT]
 >
