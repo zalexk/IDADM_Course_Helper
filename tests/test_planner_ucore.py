@@ -9,8 +9,11 @@ supabase and binds st.secrets, and load_all_data() reads the real data/ files.
 import pytest
 
 from app.planner import (
+    _build_course_table,
+    _campus_code,
     _compute_ucore,
     _compute_ucore_detail,
+    _drop_unplanned_english,
     _foundation_credits,
     _foundation_taken_credits,
     _ge_china_credits,
@@ -199,3 +202,73 @@ class TestUcoreCredits:
         flags = _compute_ucore(context, rows)
         detail = _compute_ucore_detail(context, rows)
         assert flags == {item: value[0] for item, value in detail.items()}
+
+
+class TestEnglishCampusDisplay:
+    """Planner year view shows each English course as offered at its campus.
+
+    The English table's row identity is the CUHK (ELTU*) code, but a course
+    planned in a CUHKSZ semester was taken as the CUHKSZ (ENG*) substitute.
+    Before the fix the year table showed ELTU2005 in a CUHKSZ semester
+    because English pairs are not in equivalence_courses.csv.
+    """
+
+    def test_hk_course_shown_as_sz_substitute(self, context):
+        assert _campus_code(context, "ELTU2005", "CUHKSZ") == "ENG2001"
+
+    def test_hk_course_stays_hk_at_cuhk(self, context):
+        assert _campus_code(context, "ELTU2005", "CUHK") == "ELTU2005"
+
+    def test_course_without_substitute_stays(self, context):
+        assert _campus_code(context, "ELTU3014", "CUHKSZ") == "ELTU3014"
+
+    def test_sz_code_stays_at_sz_campus(self, context):
+        assert _campus_code(context, "ENG2001", "CUHKSZ") == "ENG2001"
+
+    def test_course_table_row_shows_sz_substitute_and_credits(self, context):
+        rows = [{
+            "course_id": "ELTU2005",
+            "source": "english",
+            "study_period": "Year 2 Sem 1",
+            "credits": 0,
+        }]
+        table = _build_course_table(context, rows)
+        assert table.iloc[0]["Course"].startswith("ENG2001 ")
+        assert int(table.iloc[0]["Credits"]) == 3
+
+
+class TestUnplannedEnglishRows:
+    """English rows without a Study Period are not planned and must not count.
+
+    Clearing an English row's Study Period used to persist a NULL-period row:
+    invisible in the fixed English table yet still summed by the Planner, so
+    a student with 3 planned courses (8 credits) saw 11.
+    """
+
+    @staticmethod
+    def _zsk_rows() -> list[dict]:
+        return [
+            {"course_id": "ELTU1001", "source": "english", "study_period": "Year 1 Sem 1", "credits": 0},
+            {"course_id": "ELTU2005", "source": "english", "study_period": "Year 2 Sem 1", "credits": 0},
+            {"course_id": "ELTU3014", "source": "english", "study_period": "Year 3 Sem 1", "credits": 0},
+            # invisible row left behind by the old clear-period behaviour
+            {"course_id": "ELTU2014", "source": "english", "study_period": None, "credits": 0},
+        ]
+
+    def test_null_period_english_rows_are_dropped(self):
+        kept = _drop_unplanned_english(self._zsk_rows())
+        assert [r["course_id"] for r in kept] == ["ELTU1001", "ELTU2005", "ELTU3014"]
+
+    def test_whitespace_period_counts_as_unplanned(self):
+        rows = [{"course_id": "ELTU2014", "source": "english", "study_period": "   "}]
+        assert _drop_unplanned_english(rows) == []
+
+    def test_blank_period_rows_of_other_sources_are_kept(self):
+        rows = [{"course_id": "UGEA1000", "source": "four_area_ge", "study_period": "", "credits": 6}]
+        assert _drop_unplanned_english(rows) == rows
+
+    def test_stale_row_no_longer_inflates_english_requirement(self, context):
+        raw = _compute_ucore_detail(context, self._zsk_rows())
+        assert raw["English Language"] == [True, 11]  # reproduces the reported bug
+        planned = _compute_ucore_detail(context, _drop_unplanned_english(self._zsk_rows()))
+        assert planned["English Language"] == [True, 8]  # 3 + 3 + 2

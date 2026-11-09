@@ -136,6 +136,14 @@ class TestCanonicalCourseId:
     def test_unknown_sz_unchanged(self):
         assert canonical_course_id(self.context, "ZZZZ0000") == "ZZZZ0000"
 
+    def test_english_sz_code_reverses_to_hk_row_identity(self):
+        # English pairs live in english_lang_course_list.json, not in
+        # equivalence_courses.csv: ENG2001 reverses to the English table's
+        # ELTU row, so importing it updates that row instead of creating an
+        # invisible duplicate.
+        assert canonical_course_id(self.context, "ENG2001") == "ELTU2005"
+        assert canonical_course_id(self.context, "ENG1002") == "ELTU1001"
+
     def test_empty_code(self):
         assert canonical_course_id(self.context, "") == ""
 
@@ -523,7 +531,7 @@ class TestWriteConfirmed:
             {"Course ID": "GEB2000", "Recognized": False, "Study Period": ""},
             {"Course ID": "CHLT1001", "Recognized": False, "Study Period": "Year 1 Sem 1"},
             {"Course ID": "ELTU1001", "Recognized": False, "Study Period": "Year 1 Sem 2"},
-            {"Course ID": "ENG2050", "Recognized": False, "Study Period": ""},
+            {"Course ID": "ENG2050", "Recognized": False, "Study Period": "Year 2 Sem 1"},
             {"Course ID": "ZZZZ9999", "Recognized": True, "Study Period": "Year 1 Sem 1"},
         ])
         count = ci.write_confirmed(self.context, "u", df)
@@ -584,6 +592,26 @@ class TestWriteConfirmed:
         assert {d["course_id"] for _, d in upserts} == {"MATH1010", "PED1201 Badminton"}
         assert [d["study_period"] for _, d in upserts
                 if d["course_id"] == "PED1201 Badminton"] == [None]
+
+    def test_empty_period_english_skipped(self, monkeypatch):
+        # The English table is a fixed catalogue: a row without a study
+        # period is invisible there, so such a row must not be imported
+        # (it would silently count toward the requirement).
+        upserts : list[tuple] = []
+        warnings : list[str] = []
+        monkeypatch.setattr(
+            ci, "upsert_data",
+            lambda user_id, data, table_name="study_plan":
+                upserts.append((table_name, data)) or ([],),
+        )
+        monkeypatch.setattr(st, "warning", lambda msg: warnings.append(msg))
+        df = pd.DataFrame([
+            {"Import": True, "Course ID": "ELTU2005", "Recognized": True,
+             "Study Period": "", "Category": "University Core: English Language"},
+        ])
+        assert ci.write_confirmed(self.context, "u", df) == 0
+        assert upserts == []
+        assert warnings and "ELTU2005" in warnings[0] and "Study Period" in warnings[0]
 
     def test_row_failure_keeps_others(self, monkeypatch):
         seen : list[str] = []

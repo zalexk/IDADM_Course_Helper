@@ -216,9 +216,10 @@ def english_on_change(key: str, df: pd.DataFrame) -> None:
     Like data_on_change, the course identity is the row's index label (the
     HK course code from english_lang_course_list.json), so editing display
     text cannot hijack the stored course_id. Unlike data_on_change, rows
-    land in the section's own table and an empty Study Period is stored as
-    NULL (the table's CHECK rejects ''). Credits are not stored — the
-    planner derives them from the catalogue.
+    land in the section's own table. Clearing a row's Study Period un-plans
+    the course and deletes its row: a NULL-period row cannot be shown by the
+    fixed table yet would still be counted by the Planner. Credits are not
+    stored — the planner derives them from the catalogue.
     """
     user_id = st.session_state.get("user_id")
     if not user_id:
@@ -236,11 +237,17 @@ def english_on_change(key: str, df: pd.DataFrame) -> None:
     try:
         # Only Study Period is editable; identity = the index label.
         for index, changes in edited.items():
-            base = df.iloc[int(index)]
-            study_period = changes.get("Study Period", base["Study Period"]) or None
+            row = df.iloc[int(index)]
+            course_id = row.name
+            study_period = changes.get("Study Period", row["Study Period"]) or None
+            if study_period is None:
+                # No study period = not planned: delete the row instead of
+                # persisting a NULL-period course the table cannot show.
+                delete_data(user_id, course_id, table_name="english")
+                continue
             upsert_data(user_id, {
                 "id": user_id,
-                "course_id": df.iloc[int(index)].name,
+                "course_id": course_id,
                 "study_period": study_period,
             }, table_name="english")
 

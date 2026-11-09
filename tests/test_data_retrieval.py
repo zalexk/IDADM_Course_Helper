@@ -12,6 +12,7 @@ from src.data_retrieval import (
     get_course_list,
     get_equivalence_courses,
     get_english_course_list,
+    get_english_substitute,
     get_major_2_requirement,
     get_course_id_list,
     convert_course_id,
@@ -855,9 +856,42 @@ class TestEnglishCourseList:
                     assert len(get_course_info(context, cid)) == 2
 
 
+class TestEnglishSubstitute:
+    """get_english_substitute: the other campus's code for an English course.
+
+    These pairs live only in english_lang_course_list.json (never in
+    equivalence_courses.csv), so this helper is the single lookup the
+    Planner display and the course-import canonicalisation rely on.
+    """
+
+    @pytest.fixture(scope="class")
+    def context(self):
+        return load_all_data()
+
+    def test_hk_to_sz(self, context):
+        assert get_english_substitute(context, "ELTU2005") == "ENG2001"
+
+    def test_sz_to_hk(self, context):
+        assert get_english_substitute(context, "ENG2001") == "ELTU2005"
+
+    def test_shared_substitute_first_occurrence_wins(self, context):
+        # ELTU1001 and ELTU1002 both pair with ENG1002 (Engineering list
+        # order); the reverse lookup is therefore ambiguous by design.
+        assert get_english_substitute(context, "ELTU1001") == "ENG1002"
+        assert get_english_substitute(context, "ENG1002") == "ELTU1001"
+
+    def test_course_without_substitute_returns_empty(self, context):
+        assert get_english_substitute(context, "ELTU3014") == ""
+
+    def test_unknown_and_blank_return_empty(self, context):
+        assert get_english_substitute(context, "NOTACOURSE") == ""
+        assert get_english_substitute(context, "") == ""
+
+
 class TestEnglishOnChange:
     """english_on_change: catalogue identity = index label (HK code), own
-    'english' table, empty Study Period stored as None, no credits persisted."""
+    'english' table, no credits persisted, and clearing a row's Study Period
+    deletes it instead of storing a NULL-period row the table cannot show."""
 
     @staticmethod
     def _catalogue_df() -> pd.DataFrame:
@@ -891,7 +925,7 @@ class TestEnglishOnChange:
         assert data["id"] == "test-user"
         assert tbl == "english"                         # routed to the section's table
 
-    def test_empty_period_stored_as_none(self, monkeypatch):
+    def test_cleared_period_deletes_row(self, monkeypatch):
         import src.storage as storage
         st.session_state["user_id"] = "test-user"
         st.session_state["enkey2"] = {
@@ -900,10 +934,14 @@ class TestEnglishOnChange:
             "deleted_rows": [],
         }
         upserts: list = []
+        deletes: list = []
         monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
         storage.english_on_change("enkey2", self._catalogue_df())
-        assert upserts[0][0]["course_id"] == "ELTU3014"
-        assert upserts[0][0]["study_period"] is None    # empty → NULL passes DB CHECK
+        # No period = not planned: delete rather than persist an invisible
+        # NULL-period row that the Planner would still count.
+        assert deletes == [("ELTU3014", "english")]
+        assert upserts == []
 
     def test_guest_skips_write(self, monkeypatch):
         import src.storage as storage

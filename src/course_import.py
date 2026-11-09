@@ -32,6 +32,7 @@ from src.data_retrieval import (
     determine_campus,
     get_course_info,
     get_course_list,
+    get_english_substitute,
 )
 from src.storage import delete_data, upsert_data
 # Sections a user sees on the app's tabs -> import category. Categories map
@@ -350,6 +351,12 @@ def canonical_course_id(context : CourseDataContext, course_id : str) -> str:
     unchanged and later lands in the unrecognized-warning bucket.
     Deliberately NOT _course_key(): a transcript spans majors, so no single
     major's mapping is authoritative.
+
+    English-language pairs are not in equivalence_courses.csv: an SZ ENG*
+    id is reversed through english_lang_course_list.json instead, because
+    the English table's row identity is the HK (ELTU) code. Without this,
+    importing ENG2001 would not match the ELTU2005 row already in the
+    plan and could create a duplicate that the fixed table cannot show.
     """
     cid = str(course_id).strip().upper()
     if not cid:
@@ -363,6 +370,13 @@ def canonical_course_id(context : CourseDataContext, course_id : str) -> str:
         for hk_id, sz_id in mapping.items():
             if str(sz_id).upper() == cid:
                 return str(hk_id).upper()
+    substitute = get_english_substitute(context, cid)
+    if substitute:
+        try:
+            if determine_campus(substitute) == "hk":
+                return substitute
+        except DataLoadError:
+            pass
     return cid
 
 
@@ -578,9 +592,11 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
 
     Per-row semantics mirror user_input_on_change: a failing row shows one
     st.error while already-written rows stay; returns the upsert count.
-    Empty Study Period stores NULL - except on the study_plan table, where a
-    row with no term is deleted instead: the course is removed from the plan
-    (deleting a course = clearing its study period).
+    Empty Study Period stores NULL on the plan-less tables - except on the
+    study_plan table, where a row with no term is deleted instead (the
+    course is removed from the plan), and on the english table, where the
+    row is skipped with a warning: its fixed catalogue cannot show a
+    NULL-period row, yet the Planner would still count one.
     """
     count : int = 0
     skipped : list[str] = []
@@ -616,6 +632,12 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
         elif table == "study_plan" and not _in_catalogue(context, cid):
             skipped.append(cid)
             continue # unknown id: left for manual entry on the tabs
+        if table == "english" and payload["study_period"] is None:
+            # The English table is a fixed catalogue: a course without a
+            # period is invisible there, so importing it would only inflate
+            # the requirement/Total Credit behind the user's back.
+            st.warning(f"Skipped {cid}: set a Study Period to import it.")
+            continue
         if table in _INPUT_TABLES:
             # Input sections persist the whole 'CODE Title' cell as course_id
             # (mirroring user_input_on_change) and carry a credits column.

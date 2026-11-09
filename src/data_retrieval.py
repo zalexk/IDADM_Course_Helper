@@ -341,3 +341,34 @@ def get_english_course_list(
             seen.add(hk)
             merged.append(entry)
     return merged
+
+def get_english_substitute(
+    context : CourseDataContext,
+    course_id : str,
+) -> str:
+    """The other campus's code for an English-language course, or "".
+
+    The English Language table stores one row per CUHK course; its CUHKSZ
+    column carries the substitute taken there. Pairs come from
+    english_lang_course_list.json (never equivalence_courses.csv), so they
+    are invisible to convert_course_id(). Both directions are resolved
+    across every faculty's list; when several CUHK courses share one CUHKSZ
+    substitute (e.g. ELTU1001 / ELTU1002 both pair with ENG1002) the first
+    occurrence wins, mirroring get_english_course_list's merge order.
+    """
+    cid = str(course_id).strip().upper()
+    if not cid:
+        return ""
+    hk_to_sz : dict[str, str] = {}
+    sz_to_hk : dict[str, str] = {}
+    for entries in context.english_lang_courses.values():
+        for entry in entries:
+            if not isinstance(entry, list):
+                continue
+            hk = str(entry[0]).strip().upper()
+            sz = str(entry[1]).strip().upper()
+            if not hk or not sz:
+                continue
+            hk_to_sz.setdefault(hk, sz)
+            sz_to_hk.setdefault(sz, hk)
+    return hk_to_sz.get(cid) or sz_to_hk.get(cid) or ""

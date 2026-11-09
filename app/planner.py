@@ -13,6 +13,7 @@ from src.data_retrieval import (
     DataLoadError,
     get_course_list,
     get_course_info,
+    get_english_substitute,
     get_major_2_requirement,
     convert_course_id,
     determine_campus,
@@ -55,6 +56,23 @@ def _row_credits(row : dict) -> int:
         return int(row.get("credits"))
     except (TypeError, ValueError):
         return 0
+
+
+def _drop_unplanned_english(all_rows : list[dict]) -> list[dict]:
+    """Remove English rows without a Study Period.
+
+    The English Language table is a fixed catalogue: a row is planned only
+    once its Study Period is set, and the table shows an empty row otherwise.
+    Clearing a period used to persist a NULL-period row — invisible in that
+    table, yet still counted by the Planner (requirement credits, Total
+    Credit and the Overall export all read every `english` row). Such a row
+    is not planned, so drop it before any view computes anything.
+    """
+    return [
+        row for row in all_rows
+        if row.get("source") != "english"
+        or bool(str(row.get("study_period") or "").strip())
+    ]
 
 
 # GE China Programme: UGEA1555's "special option" counts it as 3 units of Area A,
@@ -134,7 +152,9 @@ def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
 
     The stored id is the canonical key (usually HK). Equivalence is per-major;
     try each major's bidict and take the first conversion that lands on the
-    target campus.
+    target campus. English-language courses are NOT in equivalence_courses.csv:
+    their CUHK/CUHKSZ substitutes live only in english_lang_course_list.json,
+    so fall back to that mapping (e.g. ELTU2005 → ENG2001 in a CUHKSZ semester).
     """
     target = "hk" if campus == "CUHK" else "sz"
     # Saved rows (PE / College GE / Four Area / Other / imported) may carry codes
@@ -152,6 +172,13 @@ def _campus_code(context : CourseDataContext, cid : str, campus : str) -> str:
                 return converted
         except (InfoMissingError, DataLoadError):
             continue
+    substitute = get_english_substitute(context, cid)
+    if substitute:
+        try:
+            if determine_campus(substitute) == target:
+                return substitute
+        except DataLoadError:
+            pass
     return cid # no equivalent at that campus: keep the original id
 
 
@@ -312,7 +339,9 @@ def _compute_ucore_detail(context : CourseDataContext, all_rows : list[dict]) ->
     )
     # Catalogue credits (all ELTU/ENG codes are in course_list.csv); DB-stored
     # credits are ignored - the fixed English table and course-import rows
-    # never persist a credits value.
+    # never persist a credits value. Unplanned (NULL-period) English rows are
+    # already removed at the Planner ingress (_drop_unplanned_english), so
+    # every English row reaching this point is actually planned.
     english_credits = sum(
         _credits(context, r["course_id"]) for r in all_rows
         if r.get("source") == "english"
@@ -672,7 +701,7 @@ def ui(context : CourseDataContext, major_2 : str) -> None:
     _import_courses(context, user_id, major_2)
 
     try:
-        all_rows = fetch_all_planned(user_id)
+        all_rows = _drop_unplanned_english(fetch_all_planned(user_id))
     except Exception:
         st.error("Failed to load your study plan, please try again.")
         return
