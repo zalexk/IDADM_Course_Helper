@@ -20,7 +20,10 @@ study_period_col_config: dict[str, Any] = {
     "Selected": st.column_config.CheckboxColumn(
         "Selected",
         width="small",
-        help="Tick to plan this course — you can pick a study period later.",
+        help=(
+            "Tick to plan this course — you can pick a study period later. "
+            "Un-ticking clears its Study Period."
+        ),
     ),
     "Study Period": st.column_config.SelectboxColumn(
         "Study Period",

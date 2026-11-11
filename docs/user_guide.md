@@ -53,7 +53,7 @@
 - **手動輸入區**：**體育 (Physical Education)**、**書院通識 (College GE)** 和**四範圍通識 (Four Area of GE)** 因課程繁多、難以列舉，需要自行填寫課程編號、學分 (Credits) 和修讀學期（學期可先留空，勾選 Selected 後再到 Planner 排）；四範圍通識區另設 **UGEA1555 (Understanding Modern China)** 的目錄列（它與 UGCP1001 / UGCP1003 的二選一計法由 Planner 自動判斷）；**其他課程 (Other Courses)** 則用於填寫不在修讀方案 (study scheme) 內、但計劃修讀的課程——這些課程會計入學期學分負荷與總學分，但不會計入任何畢業要求項。
 - **中文 (Chinese Language) 目錄表**：系統已列出中文課程（如 CHLT1001 / CHLT1002 / CHLT1303 / CHLT1308），你可增刪課程並為每門課設定修讀學期。
 - **英文 (English Language) 目錄表**：系統會根據你選擇的**第二主修所屬學院**（工學院 Faculty of Engineering / 商學院 Faculty of Business Administration / 理學院 Faculty of Science），列出該學院合資格的英文課程（ELTU* 或對應的 ENG* 碼），你只需勾選並/或設定修讀學期。
-- **Selected（已選）勾選列**：每張課程表的 **Credits 與 Study Period 之間**新增勾選框。勾選代表「計劃修讀」，**不必即刻決定學期**；未填 Study Period 的已選課程會集中在 Planner 的 **Selected Courses** 子標籤頁，之後再排學期。反過來，填了 Study Period 會**自動勾選**；清空 Study Period 只會把課程放回待排清單，不會刪除已勾選的課程。
+- **Selected（已選）勾選列**：每張課程表的 **Credits 與 Study Period 之間**新增勾選框。勾選代表「計劃修讀」，**不必即刻決定學期**；未填 Study Period 的已選課程會集中在 Planner 的 **Selected Courses** 子標籤頁，之後再排學期。反過來，填了 Study Period 會**自動勾選**；清空 Study Period 只會把課程放回待排清單，不會刪除已勾選的課程。若取消勾選，系統會同時清空該課的 Study Period（目錄課程會從計劃中移除；自行輸入的課程會保留為草稿）。
 - 在 **"Study Period"** 列中，為每門課選擇你打算修讀的學期 (Semester)（例如：`Year 1 Sem 1`）。若只想先記下課程、稍後再排，可留空並保持 Selected 勾選。
 
 > [!Note]
