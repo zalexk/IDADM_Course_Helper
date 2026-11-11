@@ -40,7 +40,6 @@ def _catalog_table(
         course_table.filter(["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period"]),
         element_key=element_key,
         col_config=study_period_col_config,
-        disabled_col=[],
         func=data_on_change,
     )
 

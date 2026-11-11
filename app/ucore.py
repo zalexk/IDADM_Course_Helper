@@ -171,9 +171,10 @@ def _catalogue_section(
     """Catalogue section: one row per course from
     major_course_list.json[major][section]. Identity = the index label
     (canonical HK key via _course_key); Selected / Study Period are editable;
-    persistence goes to the shared study_plan table via data_on_change.
-    `dynamic` additionally allows add/delete rows — added rows carry their
-    identity in the typed "CUHK" cell (first token), not an index label.
+    CUHK / CUHKSZ / Credits are read-only so the official catalogue data
+    cannot drift. `dynamic` additionally allows add/delete rows — such rows
+    carry their identity in the typed "CUHK" cell (first token), not an index
+    label, so those tables must keep CUHK editable.
     """
     courses = get_course_list(context, major)[section]
     if title:
@@ -193,7 +194,9 @@ def _catalogue_section(
         course_table.filter(["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period"]),
         element_key = element_key,
         col_config = study_period_col_config,
-        disabled_col = [],
+        # Add-row catalogue tables need the CUHK cell to identify the new
+        # course; fixed catalogue tables keep the official data locked.
+        disabled_col = [] if dynamic else None,
         func = on_change_func,
         num_of_rows = "dynamic" if dynamic else "fixed",
     )
