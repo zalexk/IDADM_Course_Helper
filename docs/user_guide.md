@@ -120,7 +120,7 @@
 > 課程導入功能需要應用配置 LLM API Key（`.streamlit/secrets.toml` 中的 `LLM_API_KEY`，可選 `LLM_BASE_URL` 與 `COURSE_IMPORT_MODEL`），否則會提示金鑰缺失。匯入僅適用於已登入帳戶，訪客模式不會儲存。
 
 ### 已選課程 (Selected Courses)
-**"Selected Courses"** 是 Planner 的第一個子標籤頁，集中列出所有**已勾選 Selected 但未排 Study Period** 的課程：
+**"Selected Courses"** 是 Planner 的第一個子標籤頁，集中列出所有**已勾選 Selected** 的課程（未排 Study Period 的課程會排在前面）：
 
 - 在表格的 **Study Period** 欄為課程選擇學期，確認後課程會自動移到對應的 Year 子標籤頁。
 - 上方指標顯示：已選課程總數、未排學期課程數、未排學期學分。
