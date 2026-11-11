@@ -1,8 +1,8 @@
 # Supabase 数据库 Schema
 
-> 最后核验：2026-11-11。核验方式：使用 `.streamlit/secrets.toml` 中的 `SUPABASE_URL` / `SUPABASE_KEY`，通过 PostgREST OpenAPI（`GET /rest/v1/`）与只读 `SELECT` 查询。**未做任何写操作**；同日的 `selected` 列迁移由维护者在 Supabase SQL Editor 执行，执行记录见 [migration-20261111-selected-flag.md](migration-20261111-selected-flag.md)。
+> 最后核验：2026-11-11。核验方式：使用 `.streamlit/secrets.toml` 中的 `SUPABASE_URL` / `SUPABASE_KEY`，通过 PostgREST OpenAPI（`GET /rest/v1/`）与只读 `SELECT` 查询。**未做任何写操作**；同日的 `selected` 列迁移由维护者在 Supabase SQL Editor 执行，执行记录见 [migration-20261111-selected-flag.md](migration-20261111-selected-flag.md)。同日新增的 `user_config` 表已由维护者执行并复验（0 行，懒创建），见 [migration-20261111-user-config.md](migration-20261111-user-config.md)；同日的 `notice_version` 列迁移已由维护者执行并复验（`integer NOT NULL DEFAULT 0`），见 [migration-20261111-notice-version.md](migration-20261111-notice-version.md)。
 >
-> 结构或语义变更后请同步更新本文件，并在 `docs/` 新增对应迁移 Runbook（参考 [migration-20261024-equivalence-keys.md](migration-20261024-equivalence-keys.md)、[migration-20261111-selected-flag.md](migration-20261111-selected-flag.md)）。
+> 结构或语义变更后请同步更新本文件，并在 `docs/` 新增对应迁移 Runbook（参考 [migration-20261024-equivalence-keys.md](migration-20261024-equivalence-keys.md)、[migration-20261111-selected-flag.md](migration-20261111-selected-flag.md)、[migration-20261111-user-config.md](migration-20261111-user-config.md)、[migration-20261111-notice-version.md](migration-20261111-notice-version.md)）。
 
 ## 1. 访问方式与安全边界
 
@@ -19,6 +19,7 @@
 | 表 | 行数（2026-11-11） | 用途 | 主键 |
 |---|---:|---|---|
 | `user` | 19 | 账户（用户名 + 密码哈希） | `id` |
+| `user_config` | 0 | 每用户偏好（第二主修；后续可扩展公告已读版本） | `id` |
 | `study_plan` | 337 | 目录课程的学习计划（University Core / IDA / 2nd Major / Chinese Language 等） | `(id, course_id)` |
 | `pe` | 32 | 体育（自由录入） | `(id, course_id)` |
 | `college_ge` | 28 | 书院通识（自由录入） | `(id, course_id)` |
@@ -28,7 +29,7 @@
 | `chinese` | 0 | **遗留表**，应用不使用；中文课程实际写 `study_plan` | `(id, course_id)` |
 | `study_plan_backup_20261024` | 5 | 2026-10-24 主键迁移前的手工备份，无约束，勿读写 | 无 |
 
-行数只作快照参考，会随用户使用变化。2026-11-11 的 `selected` 迁移未改变任何表行数（六表仍为 337/32/28/12/20/4），存量行回填 `selected = true`。
+行数只作快照参考，会随用户使用变化。2026-11-11 的 `selected` 迁移未改变任何表行数（六表仍为 337/32/28/12/20/4），存量行回填 `selected = true`。`user_config` 已于 2026-11-11 创建，当前 0 行（应用懒创建，用户首次选择后才有一行）。
 
 ## 3. 通用约定
 
@@ -39,11 +40,12 @@
 - **`study_period`**：取自 `app/constant.py` 的 `STUDY_CAMPUS` 键，例如 `Year 1 Sem 1`、`Year 3 Summer (CUHKSZ)`。空值含义见各表说明；`study_plan` 自 2026-11-11 迁移起允许 NULL（「已选、未排学期」）。
 - **`credits`**：只有四张自由录入表持久化学分（用户手填）；目录表的学分始终由 `data/course_list.csv` 推导，不入库。
 - **`selected`（2026-11-11 已迁移）**：六张计划表均有 `boolean NOT NULL DEFAULT false`；迁移时存量行回填为 `true`。应用判定「已计划」用 `src/storage.is_selected(row)`：`selected = true` **或** `study_period` 非空（学期优先，兼容旧客户端/存量行）。见 [migration-20261111-selected-flag.md](migration-20261111-selected-flag.md)。
+- **`user_config`（2026-11-11 已创建）**：每用户一行（`id` 主键 = `user.id`，`ON DELETE CASCADE`），`major_2nd text NULL` 保存第二主修（取值必须属于 `app/constant.MAJOR_2nd_list`，应用层保证），`notice_version integer NOT NULL DEFAULT 0` 保存已确认的最高公告版本（0 = 未确认；见 `data/announcements.json` 与 [migration-20261111-notice-version.md](migration-20261111-notice-version.md)）。应用懒创建：用户第一次选择时才 upsert，不预建行。读取失败时应用降级为未选择，不崩溃。
 - **`updated_at`**：多数表默认 `now()`，但 PostgREST 看不到触发器，是否自动更新需在 Dashboard 确认（见第 6 节）。
 
 ## 4. 逐表字段
 
-类型与默认值来自 PostgREST OpenAPI 的 `definitions`；`NOT NULL` 结合 `required` 列表与只读查询确认，`selected` 列的状态结合 2026-11-11 迁移复验结果确认。
+类型与默认值来自 PostgREST OpenAPI 的 `definitions`；`NOT NULL` 结合 `required` 列表与只读查询确认，`selected` 列的状态结合 2026-11-11 迁移复验结果确认；`notice_version` 已由同日迁移新增并经维护者复验（`integer NOT NULL DEFAULT 0`）。
 
 ### `user`
 
@@ -53,6 +55,19 @@
 | `created_at` | `timestamptz` | NO | `now()` | 注册时间 |
 | `name` | `text` | NO | — | 用户名（应用层 strip 后使用） |
 | `password` | `text` | YES | — | PBKDF2 哈希；敏感，勿导出 |
+
+### `user_config`
+
+每用户一行的偏好表；由 [migration-20261111-user-config.md](migration-20261111-user-config.md) 于 2026-11-11 创建（当前 0 行）。`major_2nd` 已由 Dashboard 复验确认；`notice_version` 已由 [migration-20261111-notice-version.md](migration-20261111-notice-version.md) 于 2026-11-11 新增并复验。
+
+| 列 | 类型 | NULL | 默认 | 说明 |
+|---|---|---|---|---|
+| `id` | `uuid` | NO | — | 主键；FK → `user.id`，`ON DELETE CASCADE` |
+| `major_2nd` | `text` | YES | — | 第二主修名称，取值属于 `app/constant.MAJOR_2nd_list`；NULL = 尚未选择 |
+| `notice_version` | `integer` | NO | `0` | 已确认的最高公告版本；0 = 未确认 |
+| `updated_at` | `timestamptz` | NO | `now()` | 写入时间；无触发器自动刷新，应用不依赖 |
+
+应用在登录后读取（`src/storage.fetch_user_config`），用户改选时 upsert（`save_major_2nd`），确认公告时 upsert `notice_version`（`save_notice_version`）；不预建行。公告内容来自 `data/announcements.json`，登录后一次性聚合未读版本，见 `src/announcements.py` / `app/notice.py`。
 
 ### `study_plan`（目录课程计划）
 
@@ -110,7 +125,7 @@
 
 ## 5. 关系与约束
 
-- `id` 外键：`study_plan`、`pe`、`college_ge`、`four_area_ge` → `user.id`。
+- `id` 外键：`study_plan`、`pe`、`college_ge`、`four_area_ge` → `user.id`；`user_config.id` → `user.id`（`ON DELETE CASCADE`）。
 - `english`、`other_courses` 的 `id` **没有**外键（历史原因）；清理账户时需手工处理。
 - 六张计划表均以 `(id, course_id)` 唯一；`course_id` 的 canonical 化规则见 `docs/migration-20261024-equivalence-keys.md`，改动 CSV 映射时必须同步迁移存量 `study_plan`。
 

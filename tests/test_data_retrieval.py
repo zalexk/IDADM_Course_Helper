@@ -21,6 +21,7 @@ from src.data_retrieval import (
     _course_key,
     show_course_info,
 )
+import src.storage as storage
 
 
 class TestDetermineCampus:
@@ -1346,3 +1347,104 @@ class TestGeRevisionCataloguePlacement:
         assert {"UGFH1000", "UGFH1002", "UGFN1000", "UGFN1002"} <= set(
             ucore["Required Courses"]
         )
+
+
+class _FakeUserConfigResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class _FakeUserConfigTable:
+    """Chainable stand-in for the PostgREST query builder on user_config."""
+
+    def __init__(self, rows=None, error=None):
+        self.rows = list(rows) if rows else []
+        self.error = error
+        self.filters = []
+        self.upserts = []
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, column, value):
+        self.filters.append((column, value))
+        return self
+
+    def upsert(self, data, on_conflict=None):
+        self.upserts.append((data, on_conflict))
+        return self
+
+    def execute(self):
+        if self.error is not None:
+            raise self.error
+        return _FakeUserConfigResponse(self.rows)
+
+
+class _FakeUserConfigClient:
+    def __init__(self, table):
+        self._table = table
+        self.table_names = []
+
+    def table(self, name):
+        self.table_names.append(name)
+        return self._table
+
+
+class TestUserConfig:
+    """user_config persistence: one row per user holding the 2nd Major."""
+
+    def test_fetch_returns_saved_row(self, monkeypatch):
+        table = _FakeUserConfigTable(
+            rows=[{"id": "u1", "major_2nd": "Mathematics"}]
+        )
+        fake_client = _FakeUserConfigClient(table)
+        monkeypatch.setattr(storage, "client", fake_client)
+
+        assert storage.fetch_user_config("u1") == {
+            "id": "u1",
+            "major_2nd": "Mathematics",
+        }
+        assert fake_client.table_names == ["user_config"]
+        assert table.filters == [("id", "u1")]
+
+    def test_fetch_returns_none_without_row(self, monkeypatch):
+        table = _FakeUserConfigTable(rows=[])
+        monkeypatch.setattr(storage, "client", _FakeUserConfigClient(table))
+
+        assert storage.fetch_user_config("u1") is None
+
+    def test_fetch_degrades_to_none_when_table_missing(self, monkeypatch):
+        table = _FakeUserConfigTable(
+            error=RuntimeError("relation user_config does not exist")
+        )
+        monkeypatch.setattr(storage, "client", _FakeUserConfigClient(table))
+
+        assert storage.fetch_user_config("u1") is None
+
+    def test_save_major_2nd_upserts_on_id(self, monkeypatch):
+        table = _FakeUserConfigTable()
+        fake_client = _FakeUserConfigClient(table)
+        monkeypatch.setattr(storage, "client", fake_client)
+
+        storage.save_major_2nd("u1", "Mathematics")
+
+        assert fake_client.table_names == ["user_config"]
+        assert table.upserts == [({"id": "u1", "major_2nd": "Mathematics"}, "id")]
+
+    def test_save_major_2nd_can_clear_choice(self, monkeypatch):
+        table = _FakeUserConfigTable()
+        monkeypatch.setattr(storage, "client", _FakeUserConfigClient(table))
+
+        storage.save_major_2nd("u1", None)
+
+        assert table.upserts == [({"id": "u1", "major_2nd": None}, "id")]
+
+    def test_save_notice_version_upserts_on_id(self, monkeypatch):
+        table = _FakeUserConfigTable()
+        fake_client = _FakeUserConfigClient(table)
+        monkeypatch.setattr(storage, "client", fake_client)
+
+        storage.save_notice_version("u1", 3)
+
+        assert fake_client.table_names == ["user_config"]
+        assert table.upserts == [({"id": "u1", "notice_version": 3}, "id")]

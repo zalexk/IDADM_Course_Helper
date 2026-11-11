@@ -7,11 +7,24 @@ import time
 # logged-in user's DB rows (design doc R5: guest edited_rows residue).
 _EDITOR_KEY_PREFIXES = ("ucore-", "ida-", "major2-")
 
+# Non-editor session keys that belong to the current user (2nd Major widget,
+# cached user_config row). They must be dropped on login so the next user's
+# saved values are loaded from the DB instead of reusing stale state.
+_SESSION_CLEANUP_KEYS = (
+    "guest_notice_shown",
+    "major-2nd",
+    "user_config",
+    "user_config_user_id",
+    "notice_checked",
+    "notice_pending",
+)
+
 
 def _clear_editor_state() -> None:
-    """Delete all data_editor widget state so tables rebuild from DB after login."""
+    """Delete editor widget state and per-user caches so tables and the saved
+    2nd Major rebuild from the DB after login."""
     for key in list(st.session_state.keys()):
-        if key.startswith(_EDITOR_KEY_PREFIXES) or key == "guest_notice_shown":
+        if key.startswith(_EDITOR_KEY_PREFIXES) or key in _SESSION_CLEANUP_KEYS:
             del st.session_state[key]
 
 

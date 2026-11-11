@@ -1,0 +1,16 @@
+{
+  "announcements": [
+    {
+      "version": 1,
+      "date": "2026-11-11",
+      "title": "Recent Updates",
+      "body": "New features:",
+      "items": [
+        "Course tables have a new `Selected` checkbox. Tick a course if you plan to take it. You can choose the study period later in Planner.",
+        "Planner has a new `Selected Courses` tab. You can choose study periods for all ticked courses there.",
+        "Your 2nd Major is saved after login. You do not need to choose it again.",
+        "If you untick `Selected`, its `Study Period` is cleared as well."
+      ]
+    }
+  ]
+}

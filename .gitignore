@@ -37,3 +37,6 @@ supabase-ping.sh
 
 # Local scratch
 todo.md
+
+# Local code review docs (not for publication)
+code-review*

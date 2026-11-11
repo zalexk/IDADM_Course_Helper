@@ -55,6 +55,7 @@ def _clean_credits(value) -> int | None:
 
 _ALL_TABLES = ("study_plan", "pe", "college_ge", "four_area_ge", "english", "other_courses")
 _INPUT_TABLES = ("pe", "college_ge", "four_area_ge", "other_courses")
+_USER_CONFIG_TABLE = "user_config"
 
 
 def _checkbox_value(value) -> bool | None:
@@ -431,7 +432,57 @@ def fetch_all_planned(user_id : str) -> list[dict]:
             entry["source"] = table
             result.append(entry)
     return result
-    
+
+
+def fetch_user_config(user_id : str) -> dict[str, Any] | None:
+    """Fetch the user's saved preferences row, or None when it does not exist.
+
+    The user_config table is created by a separate migration; until then a
+    read failure must not break the app, so it degrades to None (callers fall
+    back to their defaults and the stored choice is simply not restored).
+    """
+    try:
+        response = (
+            client.table(_USER_CONFIG_TABLE)
+            .select("*")
+            .eq("id", user_id)
+            .execute()
+        )
+    except Exception:
+        return None
+
+    rows = response.data or []
+    return rows[0] if rows else None
+
+
+def save_major_2nd(user_id : str, major_2nd : str | None) -> None:
+    """Upsert the 2nd Major chosen on the main page (one row per user)."""
+    (
+        client.table(_USER_CONFIG_TABLE)
+        .upsert(
+            {"id": user_id, "major_2nd": major_2nd},
+            on_conflict = "id", # one preferences row per user
+        )
+        .execute()
+    )
+
+
+
+def save_notice_version(user_id : str, version : int) -> None:
+    """Record the highest announcement version the user has acknowledged.
+
+    Only the notice_version column is sent; PostgREST updates the provided
+    columns on conflict, so this must not clobber major_2nd (and vice versa).
+    """
+    (
+        client.table(_USER_CONFIG_TABLE)
+        .upsert(
+            {"id": user_id, "notice_version": version},
+            on_conflict = "id", # one preferences row per user
+        )
+        .execute()
+    )
+
 # client = initialize_client()
 # data = fetch_data(client, "dfe85cef-2f75-4df2-80b5-891a1bbbf583")
 # print(data)
