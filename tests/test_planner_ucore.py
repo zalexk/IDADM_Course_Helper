@@ -98,37 +98,44 @@ class TestComputeUcore:
     def test_ugea1555_adds_two_area_units_without_china_core(self, context):
         status = _compute_ucore(context, _plan("UGEA1555") + [_area(4)])
         assert status[_CHINA] is True
-        assert status[_FOUR_AREA] is True  # 4 + 2 = 6
+        assert status[_FOUR_AREA] is False  # 4 + 2 = 6 < 7
+        status = _compute_ucore(context, _plan("UGEA1555") + [_area(5)])
+        assert status[_FOUR_AREA] is True  # 5 + 2 = 7
 
     def test_ugea1555_adds_three_area_units_with_china_core(self, context):
         status = _compute_ucore(context, _plan("UGCP1001", "UGEA1555") + [_area(3)])
         assert status[_CHINA] is True
-        assert status[_FOUR_AREA] is True  # 3 + 3 = 6
+        assert status[_FOUR_AREA] is False  # 3 + 3 = 6 < 7
+        status = _compute_ucore(context, _plan("UGCP1001", "UGEA1555") + [_area(4)])
+        assert status[_FOUR_AREA] is True  # 4 + 3 = 7
 
     def test_two_unit_foundation_raises_four_area_requirement(self, context):
         rows = _plan("UGFH1002", "UGFN1002") + [_area(6)]
         status = _compute_ucore(context, rows)
         assert status[_FOUNDATION] is True
-        assert status[_FOUR_AREA] is False  # 6 < 6 + 2 make-up units
+        assert status[_FOUR_AREA] is False  # 6 < 7 + 2 make-up units
 
     def test_two_unit_foundation_passes_with_makeup_credits(self, context):
-        rows = _plan("UGFH1002", "UGFN1002") + [_area(8)]
+        rows = _plan("UGFH1002", "UGFN1002") + [_area(9)]
         status = _compute_ucore(context, rows)
         assert status[_FOUNDATION] is True
-        assert status[_FOUR_AREA] is True  # 8 >= 6 + 2
+        assert status[_FOUR_AREA] is True  # 9 >= 7 + 2
 
-    def test_three_unit_foundation_keeps_six_area_units(self, context):
+    def test_three_unit_foundation_needs_seven_area_units(self, context):
         rows = _plan("UGFH1000", "UGFN1000") + [_area(6)]
         status = _compute_ucore(context, rows)
         assert status[_FOUNDATION] is True
-        assert status[_FOUR_AREA] is True
+        assert status[_FOUR_AREA] is False  # 6 < 7
+        rows = _plan("UGFH1000", "UGFN1000") + [_area(7)]
+        status = _compute_ucore(context, rows)
+        assert status[_FOUR_AREA] is True  # 7 >= 7
 
-    def test_mixed_foundation_needs_seven_area_units(self, context):
-        status = _compute_ucore(context, _plan("UGFH1000", "UGFN1002") + [_area(6)])
-        assert status[_FOUNDATION] is True
-        assert status[_FOUR_AREA] is False  # 6 < 6 + 1 make-up unit
+    def test_mixed_foundation_needs_eight_area_units(self, context):
         status = _compute_ucore(context, _plan("UGFH1000", "UGFN1002") + [_area(7)])
-        assert status[_FOUR_AREA] is True
+        assert status[_FOUNDATION] is True
+        assert status[_FOUR_AREA] is False  # 7 < 7 + 1 make-up unit
+        status = _compute_ucore(context, _plan("UGFH1000", "UGFN1002") + [_area(8)])
+        assert status[_FOUR_AREA] is True  # 8 >= 7 + 1
 
     def test_missing_foundation_side_fails(self, context):
         status = _compute_ucore(context, _plan("UGFH1000"))
@@ -186,7 +193,7 @@ class TestUcoreCredits:
         detail = _compute_ucore_detail(context, rows)
         assert detail["Physical Education"] == [True, 2]
         assert detail["College GE"] == [True, 6]
-        assert detail[_FOUR_AREA] == [True, 6]
+        assert detail[_FOUR_AREA] == [False, 6]  # 6 < 7-unit requirement
 
     def test_over_taken_input_credits_are_not_capped(self, context):
         detail = _compute_ucore_detail(

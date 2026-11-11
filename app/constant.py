@@ -66,7 +66,7 @@ GRADUATION_REQUIREMENT : dict = {
         "Chinese Language": 5,
         "English Language": 8,
         "GE: Foundation Courses": 6,
-        "GE: Four Areas (Area A, C, D)": 6,
+        "GE: Four Areas (Area A, C, D)": 7,
         "College GE": 6,
         "Understanding China": 1,
         "Hong Kong in the Wider Constitutional Order": 1,
