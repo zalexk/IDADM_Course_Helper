@@ -66,6 +66,11 @@ def _has_period(row : dict) -> bool:
     return bool(str(row.get("study_period") or "").strip())
 
 
+def _unscheduled_only(df : pd.DataFrame) -> pd.DataFrame:
+    """Rows still waiting for a Study Period (the Selected Courses backlog)."""
+    return df[df["Study Period"].astype(str).str.strip() == ""]
+
+
 def _row_plan_credits(context : CourseDataContext, row : dict) -> int:
     """Credits for a saved row: user-typed for input tables, catalogue otherwise."""
     if row.get("source") in _INPUT_SOURCES:
@@ -157,7 +162,7 @@ def _selected_courses_view(context : CourseDataContext, all_rows : list[dict]) -
         st.info("No courses selected yet. Tick the Selected box in any course table to add one.")
         return
 
-    unscheduled = df[df["Study Period"].astype(str).str.strip() == ""]
+    unscheduled = _unscheduled_only(df)
     col_selected, col_unscheduled, col_credits = st.columns(3)
     col_selected.metric("Selected courses", len(df))
     col_unscheduled.metric("Not scheduled", len(unscheduled))
@@ -167,21 +172,39 @@ def _selected_courses_view(context : CourseDataContext, all_rows : list[dict]) -
         "credits, but not toward semester credit limits."
     )
 
+    only_unscheduled = st.toggle(
+        "Only show courses without a Study Period",
+        key="planner-unscheduled-only",
+    )
+    display_df = _unscheduled_only(df) if only_unscheduled else df
+    if display_df.empty:
+        st.info("All selected courses already have a Study Period.")
+        return
+    if only_unscheduled:
+        st.caption(f"Showing {len(display_df)} of {len(df)} selected courses.")
+
     column_config = dict(study_period_col_config)
     column_config["Course"] = st.column_config.TextColumn("Course", width="large")
     column_config["Course ID"] = None # internal: hidden from the student
     column_config["Source"] = None # internal: hidden from the student
 
+    # Use a separate editor key for the filtered view so pending cell edits
+    # from the full table can never be replayed against different row indexes.
+    editor_key = (
+        "planner-selected-periods-unscheduled"
+        if only_unscheduled
+        else "planner-selected-periods"
+    )
     st.data_editor(
-        df,
+        display_df,
         hide_index=True,
         height="content",
         num_rows="fixed",
         column_config=column_config,
         disabled=["Selected", "Course", "Credits", "Course ID", "Source"],
-        key="planner-selected-periods",
+        key=editor_key,
         on_change=_selected_period_on_change,
-        args=("planner-selected-periods", df),
+        args=(editor_key, display_df),
     )
 
 

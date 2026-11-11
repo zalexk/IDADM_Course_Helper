@@ -17,6 +17,7 @@ from app.planner import (
     _foundation_credits,
     _foundation_taken_credits,
     _ge_china_credits,
+    _unscheduled_only,
 )
 from src.data_retrieval import load_all_data
 from src.storage import is_selected
@@ -263,6 +264,25 @@ class TestSelectedRows:
         assert table.iloc[0]["Study Period"] == ""
         assert bool(table.iloc[0]["Selected"]) is True
         assert int(table.iloc[0]["Credits"]) == 3 # catalogue credit
+
+    def test_selected_table_sorts_unscheduled_first_then_calendar(self, context):
+        rows = [
+            {"course_id": "GFN1000", "source": "study_plan", "study_period": "Year 2 Sem 2", "credits": 0},
+            {"course_id": "UGCP1001", "source": "study_plan", "study_period": None, "credits": 0},
+            {"course_id": "MATH1030", "source": "study_plan", "study_period": "Year 1 Sem 1", "credits": 0},
+        ]
+        table = _build_selected_table(context, rows)
+        # Blank periods first, then the STUDY_CAMPUS calendar order.
+        assert list(table["Course ID"]) == ["UGCP1001", "MATH1030", "GFN1000"]
+
+    def test_unscheduled_only_keeps_blank_period_rows(self, context):
+        rows = [
+            {"course_id": "GFN1000", "source": "study_plan", "study_period": "Year 2 Sem 2", "credits": 0},
+            {"course_id": "UGCP1001", "source": "study_plan", "study_period": None, "credits": 0},
+        ]
+        table = _build_selected_table(context, rows)
+        filtered = _unscheduled_only(table)
+        assert list(filtered["Course ID"]) == ["UGCP1001"]
 
     def test_selected_table_uses_db_credits_for_input_tables(self, context):
         rows = [
