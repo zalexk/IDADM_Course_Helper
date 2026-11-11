@@ -78,34 +78,79 @@ def _row_plan_credits(context : CourseDataContext, row : dict) -> int:
     return _credits(context, row["course_id"])
 
 
+def _course_cell(context : CourseDataContext, cid : str) -> str:
+    """'CODE Title' for one course id; the bare id when the catalogue lacks it.
+
+    Free-typed input-table rows may store text next to the code, so the lookup
+    must never crash: an unknown id is shown exactly as the student typed it.
+    """
+    cid = str(cid).strip()
+    try:
+        return f"{cid} {get_course_info(context, cid)[0]}".strip()
+    except (InfoMissingError, ValueError, IndexError):
+        return cid
+
+
+def _campus_cells(context : CourseDataContext, cid : str) -> tuple[str, str]:
+    """(CUHK, CUHKSZ) cells for one selected course.
+
+    The same course is listed as offered on each campus, mirroring the
+    catalogue tables (e.g. CSCI4160 at CUHK ↔ CSC4005 at CUHK(SZ)).  A campus
+    that does not offer the course shows "Unavailable"; a free-typed code from
+    an input table (never in the catalogue) only fills its own campus column,
+    so it is not mistaken for an equivalence that does not exist.
+    """
+    cid = str(cid).strip()
+    try:
+        campus = determine_campus(cid)
+    except DataLoadError:
+        return cid, "" # unparseable id: keep it visible in the CUHK column
+
+    target = "CUHKSZ" if campus == "hk" else "CUHK"
+    converted = _campus_code(context, cid, target)
+    known = cid in context.course_info
+    hk = sz = ""
+    own = _course_cell(context, cid)
+    if campus == "hk":
+        hk = own
+        if converted != cid:
+            sz = _course_cell(context, converted)
+        elif known:
+            sz = "Unavailable"
+    else:
+        sz = own
+        if converted != cid:
+            hk = _course_cell(context, converted)
+        elif known:
+            hk = "Unavailable"
+    return hk, sz
+
+
 def _build_selected_table(context : CourseDataContext, all_rows : list[dict]) -> pd.DataFrame:
     """Build the Selected Courses table: one row per selected course.
 
-    Columns shown: Course / Credits / Selected / Study Period. Course ID and
-    Source stay in the DataFrame (hidden) so the scheduling callback can write
-    back to the right table and course. Unscheduled rows sort first, then
-    courses are ordered by the STUDY_CAMPUS calendar.
+    Columns shown: CUHK / CUHKSZ / Credits / Selected / Study Period — the
+    same campus pairing the catalogue tables use, so a course ticked from
+    either campus is recognisable. Course ID and Source stay in the DataFrame
+    (hidden) so the scheduling callback can write back to the right table and
+    course. Unscheduled rows sort first, then courses are ordered by the
+    STUDY_CAMPUS calendar.
     """
     records = []
     for row in all_rows:
         cid = row["course_id"]
         sp = row["study_period"] or ""
-        campus = STUDY_CAMPUS.get(sp, "CUHK")
-        display_id = _campus_code(context, cid, campus)
-        title = ""
-        try:
-            title = get_course_info(context, display_id)[0]
-        except (InfoMissingError, ValueError, IndexError):
-            pass
+        hk_cell, sz_cell = _campus_cells(context, cid)
         records.append({
-            "Course": f"{display_id} {title}".strip(),
+            "CUHK": hk_cell,
+            "CUHKSZ": sz_cell,
             "Credits": _row_plan_credits(context, row),
             "Selected": True,
             "Study Period": sp,
             "Course ID": cid,
             "Source": row.get("source", "study_plan"),
         })
-    columns = ["Course", "Credits", "Selected", "Study Period", "Course ID", "Source"]
+    columns = ["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period", "Course ID", "Source"]
     df = pd.DataFrame(records, columns=pd.Index(columns))
     if not df.empty:
         calendar = {period: i for i, period in enumerate(STUDY_CAMPUS)}
@@ -153,8 +198,10 @@ def _selected_courses_view(context : CourseDataContext, all_rows : list[dict]) -
     """List every selected course and let the student pick its Study Period."""
     st.subheader("Selected Courses")
     st.caption(
-        "Every course you ticked in the tabs appears here. Pick a Study Period "
-        "to schedule it; clear the period to send it back to the backlog."
+        "Every course you ticked in the tabs appears here. Each row lists the "
+        "course as offered at CUHK and at CUHK(SZ) (\"Unavailable\" = not "
+        "offered there). Pick a Study Period to schedule it; clear the period "
+        "to send it back to the backlog."
     )
 
     df = _build_selected_table(context, all_rows)
@@ -184,7 +231,8 @@ def _selected_courses_view(context : CourseDataContext, all_rows : list[dict]) -
         st.caption(f"Showing {len(display_df)} of {len(df)} selected courses.")
 
     column_config = dict(study_period_col_config)
-    column_config["Course"] = st.column_config.TextColumn("Course", width="large")
+    column_config["CUHK"] = st.column_config.TextColumn("CUHK", width="medium")
+    column_config["CUHKSZ"] = st.column_config.TextColumn("CUHKSZ", width="medium")
     column_config["Course ID"] = None # internal: hidden from the student
     column_config["Source"] = None # internal: hidden from the student
 
@@ -201,7 +249,7 @@ def _selected_courses_view(context : CourseDataContext, all_rows : list[dict]) -
         height="content",
         num_rows="fixed",
         column_config=column_config,
-        disabled=["Selected", "Course", "Credits", "Course ID", "Source"],
+        disabled=["CUHK", "CUHKSZ", "Selected", "Credits", "Course ID", "Source"],
         key=editor_key,
         on_change=_selected_period_on_change,
         args=(editor_key, display_df),

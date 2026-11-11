@@ -130,6 +130,7 @@
 ### 已選課程 (Selected Courses)
 **"Selected Courses"** 是 Planner 的第一個子標籤頁，集中列出所有**已勾選 Selected** 的課程（未排 Study Period 的課程會排在前面）：
 
+- 表格以 **CUHK / CUHKSZ** 兩欄同時列出該課在兩校區的課程編號（有等價對應時自動換算）；沒有對應課程的一邊顯示 `Unavailable`，自由輸入／目錄外的課程只會出現在課程編號所屬校區那一欄。
 - 在表格的 **Study Period** 欄為課程選擇學期，確認後課程會自動移到對應的 Year 子標籤頁。
 - 表格預設把**未排學期的課程排在前面**，其餘按日曆順序（Year 1 Sem 1 起）排列。
 - 可用 **Only show courses without a Study Period** 開關只看未排學期的課程（上方指標仍顯示整體數字）。

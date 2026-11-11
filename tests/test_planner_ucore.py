@@ -264,7 +264,8 @@ class TestSelectedRows:
         ]
         table = _build_selected_table(context, rows)
         assert list(table.columns) == [
-            "Course", "Credits", "Selected", "Study Period", "Course ID", "Source",
+            "CUHK", "CUHKSZ", "Credits", "Selected", "Study Period",
+            "Course ID", "Source",
         ]
         # Unscheduled rows sort first; hidden columns still carry the write identity.
         assert list(table["Course ID"]) == ["CSC1001", "ELTU1001"]
@@ -307,3 +308,51 @@ class TestSelectedRows:
         ]
         planned = [row for row in rows if is_selected(row)]
         assert _compute_ucore_detail(context, planned)["English Language"][1] == 3
+
+
+def _selected_row(cid : str, source : str = "study_plan") -> dict:
+    """One selected-but-unscheduled row shaped like fetch_all_planned output."""
+    return {"course_id": cid, "source": source, "study_period": None, "credits": 0}
+
+
+class TestSelectedTableCampusColumns:
+    """The Selected Courses table lists each course at both campuses.
+
+    It mirrors the catalogue tables (CUHK / CUHKSZ columns): a course ticked
+    from either campus shows its counterpart, and a campus without the course
+    reads "Unavailable".
+    """
+
+    def test_hk_course_shows_sz_equivalent(self, context):
+        table = _build_selected_table(context, [_selected_row("CSCI4160")])
+        assert table.iloc[0]["CUHK"].startswith("CSCI4160 ")
+        assert table.iloc[0]["CUHKSZ"].startswith("CSC4005 ")
+
+    def test_sz_stored_course_shows_hk_equivalent(self, context):
+        table = _build_selected_table(context, [_selected_row("CSC4005")])
+        assert table.iloc[0]["CUHK"].startswith("CSCI4160 ")
+        assert table.iloc[0]["CUHKSZ"].startswith("CSC4005 ")
+
+    def test_hk_only_course_marks_sz_unavailable(self, context):
+        table = _build_selected_table(context, [_selected_row("UGCP1002")])
+        assert table.iloc[0]["CUHK"].startswith("UGCP1002 ")
+        assert table.iloc[0]["CUHKSZ"] == "Unavailable"
+
+    def test_sz_only_course_marks_hk_unavailable(self, context):
+        table = _build_selected_table(context, [_selected_row("CSC3160")])
+        assert table.iloc[0]["CUHK"] == "Unavailable"
+        assert table.iloc[0]["CUHKSZ"].startswith("CSC3160 ")
+
+    def test_english_pair_uses_the_english_substitute(self, context):
+        table = _build_selected_table(context, [_selected_row("ELTU2005")])
+        assert table.iloc[0]["CUHK"].startswith("ELTU2005 ")
+        assert table.iloc[0]["CUHKSZ"].startswith("ENG2001 ")
+
+    def test_free_typed_input_row_fills_only_its_own_campus(self, context):
+        rows = [{
+            "course_id": "UGEA1000 Custom", "source": "four_area_ge",
+            "study_period": None, "credits": 3, "selected": True,
+        }]
+        table = _build_selected_table(context, rows)
+        assert table.iloc[0]["CUHK"] == "UGEA1000 Custom"
+        assert table.iloc[0]["CUHKSZ"] == ""
