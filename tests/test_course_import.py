@@ -273,6 +273,22 @@ class TestBuildPreviewRows:
         # Everything not already planned defaults to checked.
         assert bool(df[df["Course ID"] == "ZZZZ9999"].iloc[0]["Import"]) is True
 
+    def test_existing_selected_unscheduled_course_unchecked(self):
+        # A course ticked as Selected but not yet scheduled is still part of
+        # the plan: the preview surfaces it (with no period) and keeps its
+        # Import checkbox off so a re-import cannot duplicate it.
+        existing = [{"course_id": "CSCI1120", "study_period": None,
+                     "selected": True, "source": "study_plan"}]
+        df = build_preview_rows(
+            self.context,
+            [{"code": "CSCI1120", "title": "Intro", "term": "Year 1 Sem 1"}],
+            existing,
+            self.MAJOR_2,
+        )
+        row = df.iloc[0]
+        assert bool(row["Import"]) is False
+        assert row["Existing Period"] == ""
+
     def test_existing_period_spans_all_tables(self):
         # fetch_all_planned rows: same course in two tables -> first
         # non-empty period wins, regardless of the source table; the row is
@@ -444,16 +460,19 @@ class TestWriteConfirmed:
         # bare code with no credits.
         assert by_id["PHED1000 PE Course"] == (
             "pe", {"id": "u", "course_id": "PHED1000 PE Course",
-                   "credits": 1, "study_period": "Year 1 Sem 1"},
+                   "credits": 1, "study_period": "Year 1 Sem 1",
+                   "selected": True},
         )
         assert by_id["GEB2000 Area B"][0] == "four_area_ge"
         assert by_id["GEB2000 Area B"][1]["credits"] == 3
+        assert by_id["GEB2000 Area B"][1]["selected"] is True
         assert by_id["ELTU1001"] == (
             "english", {"id": "u", "course_id": "ELTU1001",
-                        "study_period": "Year 1 Sem 2"},
+                        "study_period": "Year 1 Sem 2", "selected": True},
         )
         assert by_id["CHLT1001"][0] == "study_plan"
         assert "credits" not in by_id["CHLT1001"][1]
+        assert by_id["CHLT1001"][1]["selected"] is True
 
     def test_input_table_identity_and_credit_defaults(self, monkeypatch):
         calls = self._capture(monkeypatch)
@@ -474,6 +493,7 @@ class TestWriteConfirmed:
         assert college[0] == "college_ge"
         assert college[1]["course_id"] == "GECC1130 College GE"
         assert college[1]["credits"] == 3  # missing credits -> tab default
+        assert [data["selected"] for _, data in calls] == [True, True]
 
     def test_preview_roundtrip_ped_example(self, monkeypatch):
         # The user's example: PED1201 Badminton lands in pe as
@@ -489,7 +509,7 @@ class TestWriteConfirmed:
         assert ci.write_confirmed(self.context, "u", preview) == 1
         assert calls[0] == ("pe", {
             "id": "u", "course_id": "PED1201 Badminton",
-            "credits": 1, "study_period": "Year 1 Sem 2",
+            "credits": 1, "study_period": "Year 1 Sem 2", "selected": True,
         })
 
     def test_study_plan_category_requires_catalogue(self, monkeypatch):
@@ -506,8 +526,10 @@ class TestWriteConfirmed:
         assert count == 2                      # unknown id skipped
         assert calls[0] == ("study_plan", {
             "id": "user-1", "course_id": "CSCI1120", "study_period": "Year 1 Sem 1",
+            "selected": True,
         })
         assert {d["course_id"] for _, d in calls} == {"CSCI1120", "MATH1010"}
+        assert all(d["selected"] is True for _, d in calls)
 
     def test_input_category_imports_unrecognized_id(self, monkeypatch):
         # A real course outside the catalogue: an explicit input-table
@@ -519,6 +541,7 @@ class TestWriteConfirmed:
         ])
         assert ci.write_confirmed(self.context, "u", df) == 1
         assert calls[0][0] == "college_ge"
+        assert calls[0][1]["selected"] is True
 
     def test_missing_category_falls_back_to_prefix_and_catalogue(self, monkeypatch):
         # Stale preview without a Category column (pre-migration session
@@ -545,6 +568,7 @@ class TestWriteConfirmed:
         assert by_id["ELTU1001"] == "english"
         assert by_id["ENG2050"] == "english"
         assert "ZZZZ9999" not in by_id
+        assert all(d["selected"] is True for _, d in calls)
 
     def test_unchecked_rows_skipped(self, monkeypatch):
         # Import=False rows are never written; a stale preview without the
@@ -562,12 +586,14 @@ class TestWriteConfirmed:
         assert ci.write_confirmed(self.context, "u", df) == 2
         assert {d["course_id"] for _, d in calls} == {"CSCI1120", "CHLT1001"}
 
-    def test_empty_period_study_plan_deletes(self, monkeypatch):
-        # Clearing the study period of a study_plan course removes it from
-        # the plan instead of storing a NULL-period row; input-table rows
-        # keep the NULL partial-fill convention.
+    def test_empty_period_study_plan_skipped(self, monkeypatch):
+        # A study_plan course imported without a Study Period is skipped with
+        # a warning (never deleted, never written): the tab only shows a
+        # course once it has a term. Input-table rows keep the NULL
+        # partial-fill convention and are still marked selected.
         upserts : list[tuple] = []
         deletes : list[tuple] = []
+        warnings : list[str] = []
         monkeypatch.setattr(
             ci, "upsert_data",
             lambda user_id, data, table_name="study_plan":
@@ -578,6 +604,7 @@ class TestWriteConfirmed:
             lambda user_id, course_id, table_name="study_plan":
                 deletes.append((table_name, course_id)),
         )
+        monkeypatch.setattr(st, "warning", lambda msg: warnings.append(msg))
         df = pd.DataFrame([
             {"Import": True, "Course ID": "CSCI1120", "Recognized": True,
              "Study Period": "", "Category": "Other Courses"},
@@ -588,10 +615,28 @@ class TestWriteConfirmed:
              "Category": "University Core: PE"},
         ])
         assert ci.write_confirmed(self.context, "u", df) == 2
-        assert deletes == [("study_plan", "CSCI1120")]
+        assert deletes == []                      # nothing is deleted any more
+        assert len(warnings) == 1
+        assert "CSCI1120" in warnings[0] and "Study Period" in warnings[0]
         assert {d["course_id"] for _, d in upserts} == {"MATH1010", "PED1201 Badminton"}
+        assert all(d["selected"] is True for _, d in upserts)
         assert [d["study_period"] for _, d in upserts
                 if d["course_id"] == "PED1201 Badminton"] == [None]
+
+    def test_empty_period_input_table_persists_selected(self, monkeypatch):
+        # Input tables persist partially-filled rows with a NULL period; the
+        # imported row is still marked selected (planned, just unscheduled).
+        calls = self._capture(monkeypatch)
+        df = pd.DataFrame([
+            {"Import": True, "Course ID": "PED1201", "Course": "⚠ Badminton",
+             "Recognized": False, "Study Period": "", "Credits": 1,
+             "Category": "University Core: PE"},
+        ])
+        assert ci.write_confirmed(self.context, "u", df) == 1
+        assert calls == [("pe", {
+            "id": "u", "course_id": "PED1201 Badminton",
+            "study_period": None, "selected": True, "credits": 1,
+        })]
 
     def test_empty_period_english_skipped(self, monkeypatch):
         # The English table is a fixed catalogue: a row without a study

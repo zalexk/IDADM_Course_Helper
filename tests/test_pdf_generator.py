@@ -7,8 +7,22 @@ whole export with FPDFUnicodeEncodingException.
 """
 
 import pandas as pd
+import pypdfium2 as pdfium
 
 from src.pdf_generator import _pdf_safe, generate_study_plan_pdf
+
+
+def _pdf_text(pdf_bytes : bytes) -> str:
+    """Extract the text of every page (pdfium is already a project dependency:
+    the import pipeline renders transcript pages with it)."""
+    document = pdfium.PdfDocument(pdf_bytes)
+    try:
+        return "".join(
+            document[index].get_textpage().get_text_range()
+            for index in range(len(document))
+        )
+    finally:
+        document.close()
 
 
 class TestPdfSafeText:
@@ -38,3 +52,28 @@ class TestGeneratePdf:
         df = pd.DataFrame(columns=["Course", "Credits", "Study Period"])
         out = generate_study_plan_pdf(df, "Information Engineering")
         assert out.startswith(b"%PDF")
+
+    def test_blank_period_row_exports_selected_section(self):
+        # A course ticked as Selected but not yet scheduled must not vanish
+        # from the export: it gets a closing section of its own (titles still
+        # go through _pdf_safe, hence the en dash).
+        df = pd.DataFrame([
+            {"Course": "CSCI1120 Introduction to Computing", "Credits": 3,
+             "Study Period": "Year 1 Sem 1"},
+            {"Course": "MATH1010 Calculus \u2013 Series", "Credits": 3,
+             "Study Period": None},
+        ])
+        out = generate_study_plan_pdf(df, "Information Engineering")
+        assert out.startswith(b"%PDF")
+        text = _pdf_text(out)
+        assert "Selected Courses (No Study Period)" in text
+        assert "MATH1010 Calculus - Series" in text
+        assert "Total Selected Credits: 3" in text
+
+    def test_no_selected_section_when_all_courses_scheduled(self):
+        df = pd.DataFrame([
+            {"Course": "CSCI1120 Introduction to Computing", "Credits": 3,
+             "Study Period": "Year 1 Sem 1"},
+        ])
+        text = _pdf_text(generate_study_plan_pdf(df, "Information Engineering"))
+        assert "Selected Courses" not in text

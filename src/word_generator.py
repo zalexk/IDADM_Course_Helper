@@ -4,6 +4,8 @@ Mirrors the production layout: title + 2nd major, grouped by year (one section
 per year), each semester/summer shown as a Course/Credits table with a subtotal,
 and a year-total at the bottom. Adapted to the refactored unified course table
 (`Course Credits Study Period`) instead of the old CUHK/CUHKSZ split columns.
+Courses ticked as Selected but not yet scheduled (blank Study Period) are
+listed in a final "Selected Courses (No Study Period)" section.
 """
 
 from datetime import datetime
@@ -16,7 +18,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import pandas as pd
 
 from app.constant import STUDY_CAMPUS
-from src.pdf_generator import _format_now
+from src.pdf_generator import _blank_period_rows, _format_now
 
 
 def generate_study_plan_docx(study_plan_df : pd.DataFrame, major_2_name : str, *, user_tz : str | None = None) -> BytesIO:
@@ -108,6 +110,49 @@ def generate_study_plan_docx(study_plan_df : pd.DataFrame, major_2_name : str, *
 
         if year < 4:
             doc.add_page_break()
+
+    # Courses the student ticked as Selected but has not scheduled yet: one
+    # closing section so they do not disappear from the export.
+    selected_df = _blank_period_rows(study_plan_df)
+    if not selected_df.empty:
+        doc.add_page_break()
+        doc.add_heading("Selected Courses (No Study Period)", level=1)
+
+        table = doc.add_table(rows=1, cols=2)
+        table.style = "Table Grid"
+        table.autofit = False
+
+        table.columns[0].width = Inches(5.0)
+        table.columns[1].width = Inches(1.0)
+
+        # Header row
+        hdr_cells = table.rows[0].cells
+        hdr_cells[0].text = "Course"
+        hdr_cells[0].width = Inches(5.0)
+        hdr_cells[1].text = "Credits"
+        hdr_cells[1].width = Inches(1.0)
+        for cell in hdr_cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.bold = True
+
+        # Data rows
+        display_df = selected_df.filter(["Course", "Credits"])
+        for _, data_row in display_df.iterrows():
+            row_cells = table.add_row().cells
+            row_cells[0].text = str(data_row["Course"])
+            row_cells[0].width = Inches(5.0)
+            row_cells[1].text = str(data_row["Credits"])
+            row_cells[1].width = Inches(1.0)
+            row_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Total of the selected section
+        selected_credits = int(selected_df["Credits"].sum())
+        p = doc.add_paragraph()
+        run = p.add_run(f"Total Selected Credits: {selected_credits}")
+        run.bold = True
+        run.font.size = Pt(12)
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
     target_stream = BytesIO()
     doc.save(target_stream)

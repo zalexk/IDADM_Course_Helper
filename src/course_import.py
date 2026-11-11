@@ -34,6 +34,9 @@ from src.data_retrieval import (
     get_course_list,
     get_english_substitute,
 )
+# delete_data is kept on the module namespace even though write_confirmed no
+# longer deletes: the test suite pins "the import path never removes saved
+# rows" by monkeypatching this attribute.
 from src.storage import delete_data, upsert_data
 # Sections a user sees on the app's tabs -> import category. Categories map
 # onto the underlying Supabase tables; the labels stay user-facing so the
@@ -592,11 +595,13 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
 
     Per-row semantics mirror user_input_on_change: a failing row shows one
     st.error while already-written rows stay; returns the upsert count.
-    Empty Study Period stores NULL on the plan-less tables - except on the
-    study_plan table, where a row with no term is deleted instead (the
-    course is removed from the plan), and on the english table, where the
-    row is skipped with a warning: its fixed catalogue cannot show a
-    NULL-period row, yet the Planner would still count one.
+    Every written row carries selected=True: imported courses count as
+    planned even before the user assigns a Study Period.
+    Empty Study Period stores NULL on the input tables (partial-fill rows) -
+    except on the study_plan and english tables, where the row is skipped
+    with a warning: those tabs show a course only once it has a term, so a
+    saved NULL-period row would stay invisible there while the Planner
+    still counted it.
     """
     count : int = 0
     skipped : list[str] = []
@@ -611,6 +616,9 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
             "id": user_id,
             "course_id": cid,
             "study_period": period if isinstance(period, str) and period.strip() else None,
+            # Imported courses are part of the plan by definition, so they
+            # stay counted by the Planner even when no Study Period is set.
+            "selected": True,
         }
         category = row.get("Category")
         table : str | None = CATEGORY_TABLES.get(category) if isinstance(category, str) else None
@@ -650,13 +658,11 @@ def write_confirmed(context : CourseDataContext, user_id : str, df : pd.DataFram
                 continue
             payload["credits"] = credits
         if table == "study_plan" and payload["study_period"] is None:
-            # No study period = remove the course from the plan, not "planned
-            # with no term": a NULL-period study_plan row is invisible junk.
-            # Input tables keep their NULL convention (partial-fill rows).
-            try:
-                delete_data(user_id, cid, table_name="study_plan")
-            except Exception:
-                st.error(f"Failed to delete {cid}, please try again.")
+            # A catalogue course without a term stays invisible on its tab:
+            # writing it would only inflate the Planner behind the user's
+            # back, so skip it and point at the Study Period column instead
+            # of silently deleting the saved row.
+            st.warning(f"Skipped {cid}: set a Study Period to import it.")
             continue
         try:
             upsert_data(user_id, payload, table_name=table)

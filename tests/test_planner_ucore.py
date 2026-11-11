@@ -10,15 +10,16 @@ import pytest
 
 from app.planner import (
     _build_course_table,
+    _build_selected_table,
     _campus_code,
     _compute_ucore,
     _compute_ucore_detail,
-    _drop_unplanned_english,
     _foundation_credits,
     _foundation_taken_credits,
     _ge_china_credits,
 )
 from src.data_retrieval import load_all_data
+from src.storage import is_selected
 
 _FOUR_AREA = "GE: Four Areas (Area A, C, D)"
 _FOUNDATION = "GE: Foundation Courses"
@@ -237,38 +238,45 @@ class TestEnglishCampusDisplay:
         assert int(table.iloc[0]["Credits"]) == 3
 
 
-class TestUnplannedEnglishRows:
-    """English rows without a Study Period are not planned and must not count.
+class TestSelectedRows:
+    """Selected-but-unscheduled rows stay in the plan until they are scheduled."""
 
-    Clearing an English row's Study Period used to persist a NULL-period row:
-    invisible in the fixed English table yet still summed by the Planner, so
-    a student with 3 planned courses (8 credits) saw 11.
-    """
+    def test_is_selected_rules(self):
+        assert is_selected({"selected": True, "study_period": None})
+        assert is_selected({"selected": False, "study_period": "Year 1 Sem 1"})
+        assert not is_selected({"selected": False, "study_period": None})
+        # Legacy row without the flag still counts when it has a period.
+        assert is_selected({"study_period": "Year 1 Sem 1"})
+        assert not is_selected({"study_period": None})
 
-    @staticmethod
-    def _zsk_rows() -> list[dict]:
-        return [
+    def test_selected_table_columns_and_ordering(self, context):
+        rows = [
             {"course_id": "ELTU1001", "source": "english", "study_period": "Year 1 Sem 1", "credits": 0},
-            {"course_id": "ELTU2005", "source": "english", "study_period": "Year 2 Sem 1", "credits": 0},
-            {"course_id": "ELTU3014", "source": "english", "study_period": "Year 3 Sem 1", "credits": 0},
-            # invisible row left behind by the old clear-period behaviour
-            {"course_id": "ELTU2014", "source": "english", "study_period": None, "credits": 0},
+            {"course_id": "CSC1001", "source": "study_plan", "study_period": None, "credits": 0},
         ]
+        table = _build_selected_table(context, rows)
+        assert list(table.columns) == [
+            "Course", "Credits", "Selected", "Study Period", "Course ID", "Source",
+        ]
+        # Unscheduled rows sort first; hidden columns still carry the write identity.
+        assert list(table["Course ID"]) == ["CSC1001", "ELTU1001"]
+        assert table.iloc[0]["Study Period"] == ""
+        assert bool(table.iloc[0]["Selected"]) is True
+        assert int(table.iloc[0]["Credits"]) == 3 # catalogue credit
 
-    def test_null_period_english_rows_are_dropped(self):
-        kept = _drop_unplanned_english(self._zsk_rows())
-        assert [r["course_id"] for r in kept] == ["ELTU1001", "ELTU2005", "ELTU3014"]
+    def test_selected_table_uses_db_credits_for_input_tables(self, context):
+        rows = [
+            {"course_id": "UGEA1000 Custom", "source": "four_area_ge",
+             "study_period": None, "credits": 3, "selected": True},
+        ]
+        table = _build_selected_table(context, rows)
+        assert int(table.iloc[0]["Credits"]) == 3
+        assert table.iloc[0]["Source"] == "four_area_ge"
 
-    def test_whitespace_period_counts_as_unplanned(self):
-        rows = [{"course_id": "ELTU2014", "source": "english", "study_period": "   "}]
-        assert _drop_unplanned_english(rows) == []
-
-    def test_blank_period_rows_of_other_sources_are_kept(self):
-        rows = [{"course_id": "UGEA1000", "source": "four_area_ge", "study_period": "", "credits": 6}]
-        assert _drop_unplanned_english(rows) == rows
-
-    def test_stale_row_no_longer_inflates_english_requirement(self, context):
-        raw = _compute_ucore_detail(context, self._zsk_rows())
-        assert raw["English Language"] == [True, 11]  # reproduces the reported bug
-        planned = _compute_ucore_detail(context, _drop_unplanned_english(self._zsk_rows()))
-        assert planned["English Language"] == [True, 8]  # 3 + 3 + 2
+    def test_english_requirement_counts_unscheduled_selected_row(self, context):
+        rows = [
+            {"course_id": "ELTU1001", "source": "english",
+             "study_period": None, "credits": 0, "selected": True},
+        ]
+        planned = [row for row in rows if is_selected(row)]
+        assert _compute_ucore_detail(context, planned)["English Language"][1] == 3

@@ -6,7 +6,7 @@ from typing import Any, Literal, overload
 from app import constant
 import streamlit as st
 
-from src.storage import fetch_data
+from src.storage import fetch_data, is_selected
 
 
 class DataLoadError(Exception): pass
@@ -283,21 +283,35 @@ def show_course_info(
     course_list : str | list[str], 
     campus : Literal['hk', 'sz'], 
     request_type : str = "courses"
-) -> list[str | int]:
+) -> list[str | int | bool]:
     
     courses: list[str] = [course_list] if isinstance(course_list, str) else course_list
 
-    if request_type == "study_period":
+    if request_type in ("study_period", "selection"):
         if not (user_id := st.session_state.get("user_id")):
-            return ["" for _ in courses] # guest: nothing stored
+            blank: list[str | int | bool] = [False if request_type == "selection" else "" for _ in courses]
+            return blank # guest: nothing stored
 
         try:
-            saved = {row["course_id"]: row["study_period"] for row in fetch_data(user_id)}
+            rows = fetch_data(user_id) # default table: study_plan
         except Exception:
             st.error("Failed to load saved study periods, please try again.")
-            return ["" for _ in courses] # degrade: show the table unpopulated
+            blank = [False if request_type == "selection" else "" for _ in courses]
+            return blank # degrade: show the table unpopulated
 
-        return [saved.get(_course_key(context, major, cid), "") for cid in courses]
+        # Only selected rows surface. A row with a period is always selected
+        # (see storage.is_selected); unscheduled selected rows show a blank
+        # period but a ticked checkbox.
+        if request_type == "study_period":
+            saved = {
+                row["course_id"]: (row.get("study_period") or "")
+                for row in rows
+                if is_selected(row)
+            }
+            return [saved.get(_course_key(context, major, cid), "") for cid in courses]
+
+        selected_ids = {row["course_id"] for row in rows if is_selected(row)}
+        return [_course_key(context, major, cid) in selected_ids for cid in courses]
 
     output_list : list[int | str] = []
 

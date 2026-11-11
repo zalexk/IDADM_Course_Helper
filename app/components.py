@@ -9,10 +9,6 @@ from app.constant import STUDY_CAMPUS
 
 
 study_period_col_config: dict[str, Any] = {
-    "Study Period": st.column_config.SelectboxColumn(
-        "Study Period",
-        options=list[SelectboxOptionValue](STUDY_CAMPUS.keys()),
-    ),
     "Credits": st.column_config.NumberColumn(
         "Credits",
         width="small",
@@ -20,6 +16,15 @@ study_period_col_config: dict[str, Any] = {
         min_value=0,
         max_value=10,
         step="int", # type: ignore[return-value]
+    ),
+    "Selected": st.column_config.CheckboxColumn(
+        "Selected",
+        width="small",
+        help="Tick to plan this course — you can pick a study period later.",
+    ),
+    "Study Period": st.column_config.SelectboxColumn(
+        "Study Period",
+        options=list[SelectboxOptionValue](STUDY_CAMPUS.keys()),
     ),
 }
 

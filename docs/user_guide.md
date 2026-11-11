@@ -50,10 +50,11 @@
 在 **"University Core"** 標籤頁 (Tab) 中：
 
 - **大學必修課目錄表**：系統已列出大學必修課程（如大學通識基礎課 UGFN1000 / UGFH1000、認識中國 UGCP1001、香港特區的憲制秩序 UGCP1002、數碼素養及計算思維 ENGG1003 等），你只需為每門課設定修讀學期。
-- **手動輸入區**：**體育 (Physical Education)**、**書院通識 (College GE)** 和**四範圍通識 (Four Area of GE)** 因課程繁多、難以列舉，需要自行填寫課程編號、學分 (Credits) 和修讀學期；四範圍通識區另設 **UGEA1555 (Understanding Modern China)** 的目錄列（它與 UGCP1001 / UGCP1003 的二選一計法由 Planner 自動判斷）；**其他課程 (Other Courses)** 則用於填寫不在修讀方案 (study scheme) 內、但計劃修讀的課程——這些課程會計入學期學分負荷與總學分，但不會計入任何畢業要求項。
+- **手動輸入區**：**體育 (Physical Education)**、**書院通識 (College GE)** 和**四範圍通識 (Four Area of GE)** 因課程繁多、難以列舉，需要自行填寫課程編號、學分 (Credits) 和修讀學期（學期可先留空，勾選 Selected 後再到 Planner 排）；四範圍通識區另設 **UGEA1555 (Understanding Modern China)** 的目錄列（它與 UGCP1001 / UGCP1003 的二選一計法由 Planner 自動判斷）；**其他課程 (Other Courses)** 則用於填寫不在修讀方案 (study scheme) 內、但計劃修讀的課程——這些課程會計入學期學分負荷與總學分，但不會計入任何畢業要求項。
 - **中文 (Chinese Language) 目錄表**：系統已列出中文課程（如 CHLT1001 / CHLT1002 / CHLT1303 / CHLT1308），你可增刪課程並為每門課設定修讀學期。
-- **英文 (English Language) 目錄表**：系統會根據你選擇的**第二主修所屬學院**（工學院 Faculty of Engineering / 商學院 Faculty of Business Administration / 理學院 Faculty of Science），列出該學院合資格的英文課程（ELTU* 或對應的 ENG* 碼），你只需為每門課設定修讀學期。
-- 在 **"Study Period"** 列中，為每門課選擇你打算修讀的學期 (Semester)（例如：`Year 1 Sem 1`）。
+- **英文 (English Language) 目錄表**：系統會根據你選擇的**第二主修所屬學院**（工學院 Faculty of Engineering / 商學院 Faculty of Business Administration / 理學院 Faculty of Science），列出該學院合資格的英文課程（ELTU* 或對應的 ENG* 碼），你只需勾選並/或設定修讀學期。
+- **Selected（已選）勾選列**：每張課程表的 **Credits 與 Study Period 之間**新增勾選框。勾選代表「計劃修讀」，**不必即刻決定學期**；未填 Study Period 的已選課程會集中在 Planner 的 **Selected Courses** 子標籤頁，之後再排學期。反過來，填了 Study Period 會**自動勾選**；清空 Study Period 只會把課程放回待排清單，不會刪除已勾選的課程。
+- 在 **"Study Period"** 列中，為每門課選擇你打算修讀的學期 (Semester)（例如：`Year 1 Sem 1`）。若只想先記下課程、稍後再排，可留空並保持 Selected 勾選。
 
 > [!Note]
 >
@@ -108,18 +109,26 @@
 - **預覽與編輯**：確認前請檢查預覽表格：
   - **Course ID**：可編輯，修正任何誤辨識的課程代碼。
   - **Recognized**：✓ 表示代碼已對應課程目錄；未對應（⚠）的課程僅在類別為大學必修輸入區（PE / College GE / Four Areas / English）時才會匯入，否則會被略過、需手動補錄。
-  - **Existing Period**：你計劃中已儲存的學期（唯讀）；確認後將以 **Study Period** 覆寫。
+  - **Existing Period**：你計劃中已儲存的學期（唯讀）；確認後將以 **Study Period** 覆寫（目錄課程若留空 Study Period 會被略過，既有計劃不會被刪除）。
   - **Study Period**：確認後將儲存的學期。
   - **Credits**：來自成績單的學分，僅對大學必修輸入區（PE / College GE / Four Areas）生效；其他類別一律使用課程目錄學分。
   - **Category**：該課程歸屬的要求類別，若系統建議錯誤可用下拉選單調整。
-- **確認匯入**：點擊 `Confirm import 確認匯入`，課程將寫入對應的雲端資料表並顯示匯入數量。
+- **確認匯入**：點擊 `Confirm import 確認匯入`，課程將寫入對應的雲端資料表、標記為 **Selected**，並顯示匯入數量。
 
 > [!IMPORTANT]
 >
 > 課程導入功能需要應用配置 LLM API Key（`.streamlit/secrets.toml` 中的 `LLM_API_KEY`，可選 `LLM_BASE_URL` 與 `COURSE_IMPORT_MODEL`），否則會提示金鑰缺失。匯入僅適用於已登入帳戶，訪客模式不會儲存。
 
+### 已選課程 (Selected Courses)
+**"Selected Courses"** 是 Planner 的第一個子標籤頁，集中列出所有**已勾選 Selected 但未排 Study Period** 的課程：
+
+- 在表格的 **Study Period** 欄為課程選擇學期，確認後課程會自動移到對應的 Year 子標籤頁。
+- 上方指標顯示：已選課程總數、未排學期課程數、未排學期學分。
+- 未排學期的已選課程**計入畢業要求與總學分**，但**不計入學期學分上限**（因為還沒有所屬學期）。
+- 在這裡清空 Study Period 會把課程放回本頁待排清單；課程不會被刪除。
+
 ### 學期視圖 (Year 1 - Year 4)
-- **實時學分 (Credits) 計算**：查看每個學期 (Semester) 已選課程的總學分。
+- **實時學分 (Credits) 計算**：查看每個學期 (Semester) 已排課程的總學分；未排學期的已選課程不在此顯示。
 - 每個學年分為 **Sem 1 / Sem 2** 兩個子視圖，並顯示對應的修讀校區（例如 `Sem 1 (CUHK)`）。
 - **暑假學期 (Summer Session)**：合併顯示 CUHK 和 CUHK(SZ) 兩校區暑課的學分。
 - **學分 (Credits) 限制提醒**：
@@ -132,7 +141,7 @@
 在 **"Graduation Requirements"** 子標籤頁 (Sub-Tab) 中，你可以直觀地看到：
 - 各個課程類別（University Core, 1st Major, 2nd Major）的學分 (Credits) 達成情況。
 - 每個要求項目的 **Requirement / Credits / Fulfil** 狀態（University Core 的 `Credits` 為已修/已排學分，不封頂；Foundation 的 2 學分版本缺口會反映在 Four Areas 的 Requirement 上），哪些要求已符合，哪些仍未足夠。
-- 頁面底部的 **Total Credit** 顯示總學分達成情況（目標 129 學分）。
+- 頁面底部的 **Total Credit** 顯示總學分達成情況（目標 129 學分），包含已選但未排學期的課程。
 - **GE 修訂自動換算**：系統已按 GE 修訂計算——`UGEA1555` (Understanding Modern China) 在未修 `UGCP1001`/`UGCP1003` 時折算為 `UGCP1001`（1 學分）+ 2 學分四範圍通識，否則按 3 學分四範圍通識計；若修讀 2 學分的 `UGFH1002`/`UGFN1002`，Foundation 不足的學分會自動要求以四範圍通識補足（Four Areas 的 Requirement 會相應提高並顯示提示）。
 
 > [!IMPORTANT]
@@ -146,10 +155,10 @@
 ### 總覽與導出 (Overall)
 在 **"Overall"** 子標籤頁 (Sub-Tab) 中：
 
-- **預覽總表**：查看所有課程的排期表（課程會按修讀學期的校區顯示對應的課程編號）。
+- **預覽總表**：查看所有課程的排期表（課程會按修讀學期的校區顯示對應的課程編號）。已選但未排學期的課程會以空白 Study Period 列出。
 - **導出文件**：
-  - 點擊 **"Export as PDF"**：導出為 PDF 文件。
-  - 點擊 **"Export as Word"**：導出為 `.docx` 文件。
+  - 點擊 **"Export as PDF"**：導出為 PDF 文件；若有未排學期的已選課程，文件末尾會多一頁 **"Selected Courses (No Study Period)"** 及總學分。
+  - 點擊 **"Export as Word"**：導出為 `.docx` 文件，同樣包含上述待排課程段落。
 
 ---
 

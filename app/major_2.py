@@ -30,13 +30,14 @@ def _catalog_table(
             "CUHK": show_course_info(context, major, course_list, "hk"),
             "CUHKSZ": show_course_info(context, major, course_list, "sz"),
             "Credits": show_course_info(context, major, course_list, "hk", "credits"),
+            "Selected": show_course_info(context, major, course_list, "hk", "selection"),
             "Study Period": show_course_info(context, major, course_list, "hk", "study_period"),
         },
         index=pd.Index([_course_key(context, major, c) for c in course_list]),
     )
 
     table_editor(
-        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period"]),
         element_key=element_key,
         col_config=study_period_col_config,
         disabled_col=[],

@@ -21,7 +21,7 @@ from src.data_retrieval import (
     InfoMissingError,
     _course_key,
 )
-from src.storage import fetch_all_planned
+from src.storage import fetch_all_planned, is_selected, update_study_period
 from src.pdf_generator import generate_study_plan_pdf
 from src.word_generator import generate_study_plan_docx
 from app.constant import STUDY_CAMPUS, GRADUATION_REQUIREMENT
@@ -58,21 +58,131 @@ def _row_credits(row : dict) -> int:
         return 0
 
 
-def _drop_unplanned_english(all_rows : list[dict]) -> list[dict]:
-    """Remove English rows without a Study Period.
+_INPUT_SOURCES = {"pe", "college_ge", "four_area_ge", "other_courses"}
 
-    The English Language table is a fixed catalogue: a row is planned only
-    once its Study Period is set, and the table shows an empty row otherwise.
-    Clearing a period used to persist a NULL-period row — invisible in that
-    table, yet still counted by the Planner (requirement credits, Total
-    Credit and the Overall export all read every `english` row). Such a row
-    is not planned, so drop it before any view computes anything.
+
+def _has_period(row : dict) -> bool:
+    """True when a saved row has a Study Period (i.e. it is scheduled)."""
+    return bool(str(row.get("study_period") or "").strip())
+
+
+def _row_plan_credits(context : CourseDataContext, row : dict) -> int:
+    """Credits for a saved row: user-typed for input tables, catalogue otherwise."""
+    if row.get("source") in _INPUT_SOURCES:
+        return _row_credits(row)
+    return _credits(context, row["course_id"])
+
+
+def _build_selected_table(context : CourseDataContext, all_rows : list[dict]) -> pd.DataFrame:
+    """Build the Selected Courses table: one row per selected course.
+
+    Columns shown: Course / Credits / Selected / Study Period. Course ID and
+    Source stay in the DataFrame (hidden) so the scheduling callback can write
+    back to the right table and course. Unscheduled rows sort first, then
+    courses are ordered by the STUDY_CAMPUS calendar.
     """
-    return [
-        row for row in all_rows
-        if row.get("source") != "english"
-        or bool(str(row.get("study_period") or "").strip())
-    ]
+    records = []
+    for row in all_rows:
+        cid = row["course_id"]
+        sp = row["study_period"] or ""
+        campus = STUDY_CAMPUS.get(sp, "CUHK")
+        display_id = _campus_code(context, cid, campus)
+        title = ""
+        try:
+            title = get_course_info(context, display_id)[0]
+        except (InfoMissingError, ValueError, IndexError):
+            pass
+        records.append({
+            "Course": f"{display_id} {title}".strip(),
+            "Credits": _row_plan_credits(context, row),
+            "Selected": True,
+            "Study Period": sp,
+            "Course ID": cid,
+            "Source": row.get("source", "study_plan"),
+        })
+    columns = ["Course", "Credits", "Selected", "Study Period", "Course ID", "Source"]
+    df = pd.DataFrame(records, columns=pd.Index(columns))
+    if not df.empty:
+        calendar = {period: i for i, period in enumerate(STUDY_CAMPUS)}
+        df["_order"] = df["Study Period"].map(
+            lambda period: 0 if not str(period).strip()
+            else calendar.get(period, len(calendar)) + 1
+        )
+        df = df.sort_values("_order", kind="stable").drop(columns="_order")
+        df = df.reset_index(drop=True)
+    return df
+
+
+def _selected_period_on_change(key : str, df : pd.DataFrame) -> None:
+    """Persist a Study Period chosen in the Selected Courses tab.
+
+    Only the period changes here — the course stays selected (clearing the
+    period sends it back to the backlog). The row carries its source table in
+    the hidden Source column so the write lands in the right table.
+    """
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        return # Never store data for guest users
+
+    edit_state = st.session_state[key]
+    edited = edit_state.get("edited_rows", {})
+    for index, changes in edited.items():
+        if "Study Period" not in changes:
+            continue
+        base = df.iloc[int(index)]
+        course_id = str(base["Course ID"])
+        credits = int(base["Credits"]) if pd.notna(base["Credits"]) else 0
+        try:
+            update_study_period(
+                user_id,
+                course_id,
+                changes.get("Study Period"),
+                table_name=str(base["Source"]),
+                credits=credits,
+            )
+        except Exception:
+            st.error(f"Failed to save the study period for {course_id}, please try again.")
+
+
+def _selected_courses_view(context : CourseDataContext, all_rows : list[dict]) -> None:
+    """List every selected course and let the student pick its Study Period."""
+    st.subheader("Selected Courses")
+    st.caption(
+        "Every course you ticked in the tabs appears here. Pick a Study Period "
+        "to schedule it; clear the period to send it back to the backlog."
+    )
+
+    df = _build_selected_table(context, all_rows)
+    if df.empty:
+        st.info("No courses selected yet. Tick the Selected box in any course table to add one.")
+        return
+
+    unscheduled = df[df["Study Period"].astype(str).str.strip() == ""]
+    col_selected, col_unscheduled, col_credits = st.columns(3)
+    col_selected.metric("Selected courses", len(df))
+    col_unscheduled.metric("Not scheduled", len(unscheduled))
+    col_credits.metric("Unscheduled credits", int(unscheduled["Credits"].sum()))
+    st.caption(
+        "Unscheduled courses count toward graduation requirements and total "
+        "credits, but not toward semester credit limits."
+    )
+
+    column_config = dict(study_period_col_config)
+    column_config["Course"] = st.column_config.TextColumn("Course", width="large")
+    column_config["Course ID"] = None # internal: hidden from the student
+    column_config["Source"] = None # internal: hidden from the student
+
+    st.data_editor(
+        df,
+        hide_index=True,
+        height="content",
+        num_rows="fixed",
+        column_config=column_config,
+        disabled=["Selected", "Course", "Credits", "Course ID", "Source"],
+        key="planner-selected-periods",
+        on_change=_selected_period_on_change,
+        args=("planner-selected-periods", df),
+    )
 
 
 # GE China Programme: UGEA1555's "special option" counts it as 3 units of Area A,
@@ -494,12 +604,13 @@ def _requirement_view(
             height="content",
         )
         if foundation_makeup:
-            st.caption(
-                "GE Foundation: UGFH1002 / UGFN1002 are 2-unit courses. The "
+            st.info(
+                "**GE Foundation:** UGFH1002 / UGFN1002 are 2-unit courses. The "
                 f"{foundation_makeup} missing Foundation unit(s) must be made up by "
                 "UGE 4-area course(s); the Four Areas requirement above already "
                 "includes that make-up."
             )
+        st.caption("Regarding the reduction in the total units required for the Four-Area courses (from 7 to 6 units), the specific arrangement still remains uncertain.")
 
     with major_col:
         st.subheader("1st Major (IDA)")
@@ -701,17 +812,22 @@ def ui(context : CourseDataContext, major_2 : str) -> None:
     _import_courses(context, user_id, major_2)
 
     try:
-        all_rows = _drop_unplanned_english(fetch_all_planned(user_id))
+        # Draft rows (un-ticked input-table rows) are not part of the plan; a
+        # scheduled row is always selected (see storage.is_selected).
+        all_rows = [row for row in fetch_all_planned(user_id) if is_selected(row)]
     except Exception:
         st.error("Failed to load your study plan, please try again.")
         return
     all_courses = _build_course_table(context, all_rows)
 
-    y1, y2, y3, y4, grad_req, overall = st.tabs([
+    selected, y1, y2, y3, y4, grad_req, overall = st.tabs([
+        "Selected Courses",
         "Year 1", "Year 2", "Year 3", "Year 4",
         "Graduation Requirements", "Overall",
     ])
 
+    with selected:
+        _selected_courses_view(context, all_rows)
     with y1:
         _year_view(all_courses, 1)
     with y2:

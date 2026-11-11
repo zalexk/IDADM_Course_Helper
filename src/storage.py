@@ -1,4 +1,6 @@
 from supabase import create_client, Client
+from typing import Any
+
 import streamlit as st
 import pandas as pd
 
@@ -51,6 +53,43 @@ def _clean_credits(value) -> int | None:
     return int(num)
 
 
+_ALL_TABLES = ("study_plan", "pe", "college_ge", "four_area_ge", "english", "other_courses")
+_INPUT_TABLES = ("pe", "college_ge", "four_area_ge", "other_courses")
+
+
+def _checkbox_value(value) -> bool | None:
+    """Normalise a Selected cell.
+
+    None means the DataFrame carries no Selected column (legacy callers /
+    tests), so the caller falls back to the old "has a Study Period" rule.
+    """
+    if value is None or isinstance(value, bool):
+        return value
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        return None
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in ("true", "1", "yes"):
+            return True
+        if text in ("false", "0", "no", ""):
+            return False
+        return None
+    return bool(value)
+
+
+def is_selected(row) -> bool:
+    """True when a saved row is part of the plan.
+
+    A scheduled course (non-empty Study Period) always counts: this keeps
+    migrated rows and inserts made by older clients selected regardless of
+    the stored flag. An unscheduled course counts only when explicitly ticked.
+    """
+    return bool(row.get("selected")) or not _period_is_empty(row.get("study_period"))
+
+
 def data_on_change(key: str, df: pd.DataFrame) -> None:
     user_id = st.session_state.get("user_id")
     if not user_id:
@@ -72,31 +111,54 @@ def data_on_change(key: str, df: pd.DataFrame) -> None:
         #    hijack the stored course_id.
         for index, changes in edited.items():
             base = df.iloc[int(index)]
-
+            course_id = base.name
             period = changes.get("Study Period", base["Study Period"])
-            if _period_is_empty(period):
-                # Clearing the study period deletes the course from the plan
-                # (a NULL-period study_plan row is invisible junk).
-                delete_data(user_id, df.iloc[int(index)].name)
+            selected = _checkbox_value(changes.get("Selected", base.get("Selected")))
+
+            # Un-ticking removes a catalogue course from the plan entirely:
+            # the row (and its period) is deleted from study_plan.
+            if "Selected" in changes and _checkbox_value(changes["Selected"]) is False:
+                delete_data(user_id, course_id)
                 continue
+
+            # Setting a period always ticks the course; a ticked course with no
+            # period is a valid "selected, not scheduled yet" row.
+            if not _period_is_empty(period):
+                selected = True
+            if selected is None:
+                # Legacy DataFrame without a Selected column: keep the old rule.
+                selected = not _period_is_empty(period)
+            if not selected:
+                delete_data(user_id, course_id)
+                continue
+
             upsert_data(user_id, {
                 "id": user_id,
-                "course_id": df.iloc[int(index)].name,
-                "study_period": period,
+                "course_id": course_id,
+                "study_period": None if _period_is_empty(period) else period,
+                "selected": True,
             })
 
         # 2) Added rows (dynamic tables): no index label exists yet, so the
         #    identity is the course code — first token of the typed "CUHK" cell.
+        #    A ticked row without a period is a valid unscheduled selection;
+        #    an un-ticked row without a period is not planned yet.
         for row in added:
             cid = str(row.get("CUHK") or "").strip().split()[0]
             if not cid:
                 continue
-            if _period_is_empty(row.get("Study Period")):
-                continue # no term yet: not planned until a period is set
+            period = row.get("Study Period")
+            selected = _checkbox_value(row.get("Selected"))
+            if selected is None:
+                selected = not _period_is_empty(period)
+            selected = bool(selected) or not _period_is_empty(period)
+            if not selected:
+                continue
             upsert_data(user_id, {
                 "id": user_id,
                 "course_id": cid,
-                "study_period": row.get("Study Period"),
+                "study_period": None if _period_is_empty(period) else period,
+                "selected": True,
             })
 
         # 3) Deleted rows: remove by (id, course_id) using the index label
@@ -144,18 +206,35 @@ def user_input_on_change(
             if credits is None:
                 st.error(f"Invalid credits for {course_id} — please use a whole number.")
                 continue
-            study_period = changes.get("Study Period", base["Study Period"]) or None
+            raw_selected = _checkbox_value(changes.get("Selected", base.get("Selected")))
+            period = changes.get("Study Period", base["Study Period"])
+            if "Selected" in changes and _checkbox_value(changes["Selected"]) is False:
+                # Un-ticking a user-input course keeps its row as a draft but
+                # unschedules it. The period must be cleared in the same write,
+                # otherwise is_selected() would keep counting the course.
+                selected = False
+                period = None
+            elif not _period_is_empty(period):
+                selected = True # setting a period ticks the course automatically
+            elif raw_selected is None:
+                selected = not _period_is_empty(period) # legacy df without Selected
+            else:
+                selected = bool(raw_selected)
+            study_period = None if _period_is_empty(period) else period
             try:
                 upsert_data(user_id, {
                     "id": user_id,
                     "course_id": course_id,
                     "credits": credits,
                     "study_period": study_period,
+                    "selected": selected,
                 }, table_name=table_name)
             except Exception:
                 st.error(f"Failed to save {course_id}, please try again.")
 
         # 2) Added rows: complete records; identity from either campus column.
+        #    An un-ticked row is still persisted as a draft (user-input tables
+        #    keep whatever the student typed); it is simply not planned.
         for row in added:
             course_id = _clean_course_id(row.get("CUHK")) or _clean_course_id(row.get("CUHKSZ"))
             if not course_id:
@@ -164,12 +243,18 @@ def user_input_on_change(
             if credits is None:
                 st.error(f"Invalid credits for {course_id} — please use a whole number.")
                 continue
+            period = row.get("Study Period")
+            selected = _checkbox_value(row.get("Selected"))
+            if selected is None:
+                selected = not _period_is_empty(period) # legacy df without Selected
+            selected = bool(selected) or not _period_is_empty(period)
             try:
                 upsert_data(user_id, {
                     "id": user_id,
                     "course_id": course_id,
                     "credits": credits,
-                    "study_period": row.get("Study Period") or None,
+                    "study_period": None if _period_is_empty(period) else period,
+                    "selected": selected,
                 }, table_name=table_name)
             except Exception:
                 st.error(f"Failed to save {course_id}, please try again.")
@@ -216,10 +301,10 @@ def english_on_change(key: str, df: pd.DataFrame) -> None:
     Like data_on_change, the course identity is the row's index label (the
     HK course code from english_lang_course_list.json), so editing display
     text cannot hijack the stored course_id. Unlike data_on_change, rows
-    land in the section's own table. Clearing a row's Study Period un-plans
-    the course and deletes its row: a NULL-period row cannot be shown by the
-    fixed table yet would still be counted by the Planner. Credits are not
-    stored — the planner derives them from the catalogue.
+    land in the section's own table. Ticking a row without a Study Period
+    saves a "selected, not scheduled yet" row; clearing the period keeps the
+    tick so the course returns to the Planner backlog. Un-ticking deletes the
+    row. Credits are not stored — the planner derives them from the catalogue.
     """
     user_id = st.session_state.get("user_id")
     if not user_id:
@@ -235,20 +320,30 @@ def english_on_change(key: str, df: pd.DataFrame) -> None:
     deleted = edit_state.get("deleted_rows", []) # [row_index, ...]
 
     try:
-        # Only Study Period is editable; identity = the index label.
+        # Only Selected / Study Period are editable; identity = the index label.
         for index, changes in edited.items():
             row = df.iloc[int(index)]
             course_id = row.name
-            study_period = changes.get("Study Period", row["Study Period"]) or None
-            if study_period is None:
-                # No study period = not planned: delete the row instead of
-                # persisting a NULL-period course the table cannot show.
+            period = changes.get("Study Period", row["Study Period"])
+            selected = _checkbox_value(changes.get("Selected", row.get("Selected")))
+
+            if "Selected" in changes and _checkbox_value(changes["Selected"]) is False:
+                # Un-ticking removes the English course from the plan entirely.
+                delete_data(user_id, course_id, table_name="english")
+                continue
+            if not _period_is_empty(period):
+                selected = True # setting a period ticks the course automatically
+            if selected is None:
+                # Legacy DataFrame without a Selected column: keep the old rule.
+                selected = not _period_is_empty(period)
+            if not selected:
                 delete_data(user_id, course_id, table_name="english")
                 continue
             upsert_data(user_id, {
                 "id": user_id,
                 "course_id": course_id,
-                "study_period": study_period,
+                "study_period": None if _period_is_empty(period) else period,
+                "selected": True,
             }, table_name="english")
 
         # Rows are fixed (no add), but honour deletion if it ever occurs.
@@ -257,6 +352,34 @@ def english_on_change(key: str, df: pd.DataFrame) -> None:
 
     except Exception:
         st.error("Failed to save changes, please try again.") # exception chain preserved in traceback
+
+
+def update_study_period(
+    user_id: str,
+    course_id: str,
+    study_period,
+    table_name: str,
+    credits: int | None = None,
+) -> None:
+    """Set (or clear) one course's Study Period from the Planner tab.
+
+    The Planner is normally read-only; this is its single write path. The row
+    stays selected either way — clearing the period sends the course back to
+    the backlog instead of removing it. `credits` is only persisted for the
+    user-input tables, which have no catalogue to derive credits from.
+    """
+    if table_name not in _ALL_TABLES:
+        raise ValueError(f"Unknown study plan table: {table_name}")
+
+    payload: dict[str, Any] = {
+        "id": user_id,
+        "course_id": course_id,
+        "study_period": None if _period_is_empty(study_period) else study_period,
+        "selected": True,
+    }
+    if table_name in _INPUT_TABLES:
+        payload["credits"] = credits if credits is not None else 0
+    upsert_data(user_id, payload, table_name=table_name)
 
 
 def fetch_data(user_id : str, 
@@ -271,7 +394,7 @@ def fetch_data(user_id : str,
     return response.data # type: ignore[return-value]
 
 def upsert_data(user_id : str, 
-                data : dict[str, str], 
+                data : dict[str, Any],
                 table_name : str = "study_plan") -> list[dict]:
     
     response = (
@@ -294,13 +417,15 @@ def delete_data(user_id : str,
     )
 
 def fetch_all_planned(user_id : str) -> list[dict]:
-    """Fetch all planned courses across all tables, tagged with source table.
+    """Fetch every saved course across all tables, tagged with source table.
 
-    Returns a flat list of dicts, each with course_id, study_period, and a
-    'source' key identifying the originating table.
+    Returns a flat list of dicts, each with course_id, study_period, selected,
+    and a 'source' key identifying the originating table. Rows include
+    selected-but-unscheduled courses (study_period None): callers decide
+    whether to filter them with is_selected().
     """
     result : list[dict] = []
-    for table in ("study_plan", "pe", "college_ge", "four_area_ge", "english", "other_courses"):
+    for table in _ALL_TABLES:
         for row in fetch_data(user_id, table):
             entry = dict(row)
             entry["source"] = table

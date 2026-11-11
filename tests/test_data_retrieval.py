@@ -346,6 +346,246 @@ class TestDataOnChange:
         assert upserts == []
 
 
+class TestSelectedFlag:
+    """Selected is independent of the Study Period.
+
+    A ticked course without a term is a valid backlog row (the Planner's
+    'Selected Courses' tab schedules it later); setting a term always ticks
+    the course, and un-ticking removes it from the plan.
+    """
+
+    @staticmethod
+    def _catalogue_df(selected: bool = False, period: str = "") -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "CUHK": ["DOTE1030 Eco"],
+                "CUHKSZ": ["ECO2011 Micro"],
+                "Credits": [3],
+                "Selected": [selected],
+                "Study Period": [period],
+            },
+            index=pd.Index(["DOTE1030"]),
+        )
+
+    def test_tick_without_period_stores_backlog_row(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey"] = {
+            "edited_rows": {"0": {"Selected": True}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list[dict] = []
+        deletes: list[str] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        storage.data_on_change("selkey", self._catalogue_df())
+        assert deletes == []
+        assert upserts == [{
+            "id": "test-user",
+            "course_id": "DOTE1030",
+            "study_period": None,
+            "selected": True,
+        }]
+
+    def test_setting_period_auto_ticks(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey2"] = {
+            "edited_rows": {"0": {"Study Period": "Year 2 Sem 1"}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("selkey2", self._catalogue_df(selected=False, period=""))
+        assert len(upserts) == 1
+        assert upserts[0]["selected"] is True
+        assert upserts[0]["study_period"] == "Year 2 Sem 1"
+
+    def test_clearing_period_keeps_tick(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey3"] = {
+            "edited_rows": {"0": {"Study Period": ""}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list[dict] = []
+        deletes: list[str] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        storage.data_on_change("selkey3", self._catalogue_df(selected=True, period="Year 1 Sem 1"))
+        # Clearing the term returns the course to the backlog, it does not remove it.
+        assert deletes == []
+        assert upserts[0]["selected"] is True
+        assert upserts[0]["study_period"] is None
+
+    def test_untick_deletes_catalogue_row(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey4"] = {
+            "edited_rows": {"0": {"Selected": False}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list[dict] = []
+        deletes: list[str] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        storage.data_on_change("selkey4", self._catalogue_df(selected=True, period="Year 1 Sem 1"))
+        assert deletes == ["DOTE1030"]
+        assert upserts == []
+
+    def test_added_ticked_row_without_period_stored(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey5"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "CHLT2001 Extra Chinese", "Selected": True}],
+            "deleted_rows": [],
+        }
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("selkey5", self._catalogue_df())
+        assert upserts[0]["course_id"] == "CHLT2001"
+        assert upserts[0]["selected"] is True
+        assert upserts[0]["study_period"] is None
+
+    def test_added_unticked_row_without_period_skipped(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey6"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "CHLT2001 Extra Chinese", "Selected": False}],
+            "deleted_rows": [],
+        }
+        upserts: list[dict] = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append(d))
+        storage.data_on_change("selkey6", self._catalogue_df())
+        assert upserts == []
+
+    def test_input_tick_without_period_keeps_draft(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey7"] = {
+            "edited_rows": {"0": {"Selected": True}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["PHED1001"], "CUHKSZ": [""], "Credits": [1],
+             "Selected": [False], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("selkey7", df)
+        data, tbl = upserts[0]
+        assert tbl == "pe"
+        assert data["selected"] is True
+        assert data["study_period"] is None
+        assert data["credits"] == 1
+
+    def test_input_untick_clears_period_but_keeps_draft(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey8"] = {
+            "edited_rows": {"0": {"Selected": False}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": ["PHED1001"], "CUHKSZ": [""], "Credits": [1],
+             "Selected": [True], "Study Period": ["Year 1 Sem 1"]},
+        )
+        upserts: list = []
+        deletes: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append(cid))
+        storage.pe_on_change("selkey8", df)
+        # User-input drafts survive un-ticking, but the term must be cleared.
+        assert deletes == []
+        data, _ = upserts[0]
+        assert data["selected"] is False
+        assert data["study_period"] is None
+        assert data["credits"] == 1
+
+    def test_input_added_unticked_draft_persisted(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["selkey9"] = {
+            "edited_rows": {},
+            "added_rows": [{"CUHK": "PHED1002", "Selected": False, "Credits": 1, "Study Period": ""}],
+            "deleted_rows": [],
+        }
+        df = pd.DataFrame(
+            {"CUHK": [""], "CUHKSZ": [""], "Credits": [1],
+             "Selected": [False], "Study Period": [""]},
+        )
+        upserts: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        storage.pe_on_change("selkey9", df)
+        assert upserts[0][0]["selected"] is False
+        assert upserts[0][0]["study_period"] is None
+
+    def test_fetch_all_planned_passes_selected_through(self, monkeypatch):
+        import src.storage as storage
+        monkeypatch.setattr(
+            storage, "fetch_data",
+            lambda user_id, table_name="study_plan":
+                [{"id": user_id, "course_id": "CSC1001", "study_period": None, "selected": True}],
+        )
+        rows = storage.fetch_all_planned("u")
+        assert rows[0]["selected"] is True
+        assert rows[0]["source"] == "study_plan"
+
+
+class TestUpdateStudyPeriod:
+    """storage.update_study_period: the Planner's single write path."""
+
+    def test_study_plan_payload_has_no_credits(self, monkeypatch):
+        import src.storage as storage
+        calls: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: calls.append((d, k.get("table_name"))))
+        storage.update_study_period("u", "CSC1001", "Year 2 Sem 1", "study_plan")
+        assert calls == [({
+            "id": "u",
+            "course_id": "CSC1001",
+            "study_period": "Year 2 Sem 1",
+            "selected": True,
+        }, "study_plan")]
+
+    def test_input_table_payload_keeps_credits(self, monkeypatch):
+        import src.storage as storage
+        calls: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: calls.append((d, k.get("table_name"))))
+        storage.update_study_period("u", "UGFN1001 Extra", None, "four_area_ge", credits=3)
+        data, tbl = calls[0]
+        assert tbl == "four_area_ge"
+        assert data["credits"] == 3
+        assert data["study_period"] is None
+        assert data["selected"] is True
+
+    def test_input_table_credits_default_to_zero(self, monkeypatch):
+        import src.storage as storage
+        calls: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: calls.append((d, k.get("table_name"))))
+        storage.update_study_period("u", "PHED1001", "Year 1 Sem 1", "pe")
+        assert calls[0][0]["credits"] == 0
+
+    def test_blank_period_stored_as_none(self, monkeypatch):
+        import src.storage as storage
+        calls: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: calls.append((d, k.get("table_name"))))
+        storage.update_study_period("u", "CSC1001", "   ", "study_plan")
+        assert calls[0][0]["study_period"] is None
+
+    def test_unknown_table_rejected(self):
+        import src.storage as storage
+        with pytest.raises(ValueError, match="Unknown study plan table"):
+            storage.update_study_period("u", "CSC1001", "Year 1 Sem 1", "chinese")
+
+
 class TestChineseLanguageCatalogue:
     """Chinese Language is a fixed catalogue section of University Core
     (major_course_list.json): identity = canonical index label, persistence
@@ -940,6 +1180,50 @@ class TestEnglishOnChange:
         storage.english_on_change("enkey2", self._catalogue_df())
         # No period = not planned: delete rather than persist an invisible
         # NULL-period row that the Planner would still count.
+        assert deletes == [("ELTU3014", "english")]
+        assert upserts == []
+
+    @staticmethod
+    def _selected_catalogue_df() -> pd.DataFrame:
+        df = TestEnglishOnChange._catalogue_df()
+        df.insert(3, "Selected", [False, True])
+        df.loc["ELTU3014", "Study Period"] = "Year 1 Sem 1"
+        return df
+
+    def test_clearing_period_keeps_backlog_when_selected(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["enkey5"] = {
+            "edited_rows": {"1": {"Study Period": ""}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list = []
+        deletes: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
+        storage.english_on_change("enkey5", self._selected_catalogue_df())
+        assert deletes == []
+        assert upserts == [({
+            "id": "test-user",
+            "course_id": "ELTU3014",
+            "study_period": None,
+            "selected": True,
+        }, "english")]
+
+    def test_untick_deletes_english_row(self, monkeypatch):
+        import src.storage as storage
+        st.session_state["user_id"] = "test-user"
+        st.session_state["enkey6"] = {
+            "edited_rows": {"1": {"Selected": False}},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+        upserts: list = []
+        deletes: list = []
+        monkeypatch.setattr(storage, "upsert_data", lambda uid, d, **k: upserts.append((d, k.get("table_name"))))
+        monkeypatch.setattr(storage, "delete_data", lambda uid, cid, **k: deletes.append((cid, k.get("table_name"))))
+        storage.english_on_change("enkey6", self._selected_catalogue_df())
         assert deletes == [("ELTU3014", "english")]
         assert upserts == []
 

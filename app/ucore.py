@@ -11,6 +11,7 @@ from src.storage import (
     english_on_change,
     other_courses_on_change,
     fetch_data,
+    is_selected,
 )
 
 
@@ -47,7 +48,7 @@ def _user_input_section(
     row_count = max(saved_count, default_rows)
     if saved:
         # Split recalled codes by campus: SZ codes go to the CUHKSZ column.
-        cuhk_cells, sz_cells, period, credits = [], [], [], []
+        cuhk_cells, sz_cells, period, credits, selected = [], [], [], [], []
         for i, row in enumerate(saved):
             cid = row["course_id"]
             if i < row_count:
@@ -58,6 +59,7 @@ def _user_input_section(
                 cuhk_cells.append("" if is_sz else cid)
                 sz_cells.append(cid if is_sz else "")
                 period.append(row["study_period"] or "")
+                selected.append(is_selected(row))
                 try:
                     credits.append(int(row["credits"]))
                 except (TypeError, ValueError, KeyError):
@@ -66,24 +68,27 @@ def _user_input_section(
         cuhk_cells += [""] * pad
         sz_cells += [""] * pad
         period += [""] * pad
+        selected += [False] * pad
         credits += [default_credits] * pad
     else:
         cuhk_cells = [""] * row_count
         sz_cells = [""] * row_count
         period = [""] * row_count
         credits = [default_credits] * row_count
+        selected = [False] * row_count
 
     course_table = pd.DataFrame(
         {
             "CUHK": cuhk_cells,
             "CUHKSZ": sz_cells,
             "Credits": credits,
+            "Selected": selected,
             "Study Period": period,
         },
     )
 
     table_editor(
-        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period"]),
         element_key=element_key,
         col_config=study_period_col_config,
         disabled_col=[],
@@ -106,7 +111,7 @@ def _english_language_section(context : CourseDataContext, major_2 : str) -> Non
     The 2nd major determines whose faculty's requirement applies; CUHK /
     CUHKSZ pairs come straight from english_lang_course_list.json - the
     equivalence_courses.csv machinery is deliberately NOT consulted. Identity
-    = index label (HK code); only Study Period is editable.
+    = index label (HK code); only Selected / Study Period are editable.
     """
     faculties = ENGLISH_FACULTY[major_2]
     courses = get_english_course_list(context, faculties)
@@ -120,33 +125,36 @@ def _english_language_section(context : CourseDataContext, major_2 : str) -> Non
     user_id = st.session_state.get("user_id")
     if user_id:
         try:
-            saved = {row["course_id"] : row["study_period"] for row in fetch_data(user_id, "english")}
+            saved = {row["course_id"] : row for row in fetch_data(user_id, "english")}
         except Exception:
             st.error("Failed to load saved courses, please try again.")
             saved = {}
     else:
         saved = {}
 
-    cuhk, sz, credits, period, index = [], [], [], [], []
+    cuhk, sz, credits, period, selected, index = [], [], [], [], [], []
     for entry in courses:
         hk, szc = (entry, "") if isinstance(entry, str) else (entry[0], entry[1])
+        row = saved.get(hk) or saved.get(szc) or {}
         index.append(hk)
         cuhk.append(_code_title(context, hk))
         sz.append(_code_title(context, szc) if szc else "Unavailable")
         credits.append(int(get_course_info(context, hk)[1]))
-        period.append(saved.get(hk) or saved.get(szc) or "")
+        period.append(row.get("study_period") or "")
+        selected.append(is_selected(row))
 
     course_table = pd.DataFrame(
         {
             "CUHK" : cuhk,
             "CUHKSZ" : sz,
             "Credits" : credits,
+            "Selected" : selected,
             "Study Period" : period,
         },
         index = pd.Index(index),
     )
     table_editor(
-        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period"]),
         element_key = "ucore-english",
         col_config = study_period_col_config,
         func = english_on_change,
@@ -162,7 +170,7 @@ def _catalogue_section(
 ) -> None:
     """Catalogue section: one row per course from
     major_course_list.json[major][section]. Identity = the index label
-    (canonical HK key via _course_key); only Study Period is editable;
+    (canonical HK key via _course_key); Selected / Study Period are editable;
     persistence goes to the shared study_plan table via data_on_change.
     `dynamic` additionally allows add/delete rows — added rows carry their
     identity in the typed "CUHK" cell (first token), not an index label.
@@ -176,12 +184,13 @@ def _catalogue_section(
             "CUHK" : show_course_info(context, major, courses, "hk"),
             "CUHKSZ" : show_course_info(context, major, courses, "sz"),
             "Credits" : show_course_info(context, major, courses, "hk", "credits"),
+            "Selected" : show_course_info(context, major, courses, "hk", "selection"),
             "Study Period" : show_course_info(context, major, courses, "hk", "study_period")
         },
         index = pd.Index([_course_key(context, major, c) for c in courses])
     )
     table_editor(
-        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Study Period"]),
+        course_table.filter(["CUHK", "CUHKSZ", "Credits", "Selected", "Study Period"]),
         element_key = element_key,
         col_config = study_period_col_config,
         disabled_col = [],

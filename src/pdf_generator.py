@@ -4,6 +4,8 @@ Mirrors the production layout: title + 2nd major, grouped by year (one page per
 year), each semester/summer shown as a Course/Credits table with a subtotal,
 and a year-total at the bottom. Adapted to the refactored unified course table
 (`Course Credits Study Period`) instead of the old CUHK/CUHKSZ split columns.
+Courses ticked as Selected but not yet scheduled (blank Study Period) are
+listed in a final "Selected Courses (No Study Period)" section.
 """
 
 from datetime import datetime
@@ -53,6 +55,18 @@ def _format_now(user_tz : str | None) -> str:
     except Exception:
         tz = ZoneInfo("UTC")
     return datetime.now(tz).strftime("%Y-%m-%d %H:%M")
+
+
+def _blank_period_rows(study_plan_df : pd.DataFrame) -> pd.DataFrame:
+    """Rows without a Study Period: courses marked Selected but unscheduled.
+
+    The Planner passes a NULL study_period through as ''; a frame without the
+    column (or with no rows) simply has no such rows.
+    """
+    if study_plan_df.empty or "Study Period" not in study_plan_df.columns:
+        return study_plan_df.iloc[0:0]
+    periods = study_plan_df["Study Period"].fillna("").astype(str).str.strip()
+    return study_plan_df[periods == ""]
 
 
 class StudyPlanPDF(FPDF):
@@ -142,5 +156,40 @@ def generate_study_plan_pdf(study_plan_df : pd.DataFrame, major_2_name : str, *,
 
         if year < 4:
             pdf.add_page()
+
+    # Courses the student ticked as Selected but has not scheduled yet: one
+    # closing section so they do not disappear from the export.
+    selected_df = _blank_period_rows(study_plan_df)
+    if not selected_df.empty:
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(0, 10, "Selected Courses (No Study Period)", new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
+        pdf.ln(2)
+
+        pdf.set_font("Helvetica", "", 10)
+        display_df = selected_df.filter(["Course", "Credits"])
+
+        with pdf.table(
+            borders_layout="SINGLE_TOP_LINE",
+            cell_fill_color=255,
+            cell_fill_mode="ROWS",
+            line_height=6,
+            text_align=("LEFT", "CENTER"),
+            width=160,
+            col_widths=(85, 15),
+        ) as table:
+            row = table.row()
+            row.cell("Course", style=FontFace(emphasis="BOLD"))
+            row.cell("Credits", style=FontFace(emphasis="BOLD"))
+
+            for _, data_row in display_df.iterrows():
+                row = table.row()
+                row.cell(_pdf_safe(data_row["Course"]))
+                row.cell(str(data_row["Credits"]))
+
+        selected_credits = int(selected_df["Credits"].sum())
+        pdf.set_font("Helvetica", "I", 10)
+        pdf.cell(0, 8, f"Total Selected Credits: {selected_credits}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
     return bytes(pdf.output())
