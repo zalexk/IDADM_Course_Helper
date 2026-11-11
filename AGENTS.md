@@ -82,7 +82,7 @@ docker compose up -d --build     # 容器部署（需要 .streamlit/secrets.toml
 ## 运行时/工具链偏好
 
 - **包管理器**：`uv`——`uv.lock` 为权威来源。不要添加 `requirements.txt` 或 `pip install`；优先使用 `uv add` / `uv sync`。
-- **运行时**：Python `>=3.14`（`.python-version` 锁定 3.14）。运行时依赖（`[project].dependencies`）：`streamlit>=1.58.0`、`supabase>=2.31.0`、`bidict>=0.23.1`、`fpdf2>=2.7.9`（PDF 导出）、`python-docx>=1.1.0`（Word 导出）；pytest 在 dev dependency group（`[dependency-groups]`）。
+- **运行时**：Python `>=3.14`（`.python-version` 锁定 3.14）。运行时依赖（`[project].dependencies`）：`streamlit>=1.67.0`、`supabase>=2.31.0`、`bidict>=0.23.1`、`fpdf2>=2.7.9`（PDF 导出）、`python-docx>=1.1.0`（Word 导出）；pytest 在 dev dependency group（`[dependency-groups]`）。
 - **CI**：`.github/workflows/test.yml` 使用 `astral-sh/setup-uv` + `uv sync --frozen` + `uv run pytest tests/ -v`，Python 3.14。
 - **部署**：`Dockerfile` + `docker-compose.yml`（Supabase 密钥以 volume 挂载，不進鏡像）。
 - **许可证**：MIT。
